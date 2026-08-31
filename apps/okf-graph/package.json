@@ -1,0 +1,45 @@
+{
+  "name": "okf-graph",
+  "version": "0.0.0",
+  "description": "A CLI for reading, validating, and exploring Open Knowledge Format bundles.",
+  "type": "module",
+  "bin": {
+    "okf-graph": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lloydrichards/proj_okf-graph.git",
+    "directory": "apps/okf-graph"
+  },
+  "homepage": "https://github.com/lloydrichards/proj_okf-graph#readme",
+  "bugs": {
+    "url": "https://github.com/lloydrichards/proj_okf-graph/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
+    "dev": "bun --watch run src/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "type-check": "tsc --noEmit",
+    "clean": "git clean -xdf .cache .turbo dist node_modules"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-rc.112",
+    "effect": "4.0.0-rc.112",
+    "effect-boxes": "^0.17.1"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:*",
+    "@repo/domain": "workspace:*",
+    "@repo/okf": "workspace:*",
+    "@types/bun": "^1.4.0",
+    "vitest": "^4.1.11"
+  }
+}
