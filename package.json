@@ -4,6 +4,7 @@
   "type": "module",
   "packageManager": "bun@1.4.0",
   "scripts": {
+    "start": "bun run apps/okf-graph/src/index.ts",
     "build": "vp run -r build",
     "dev": "vp run -r --parallel --no-cache dev",
     "type-check": "vp run -r type-check",
@@ -13,14 +14,17 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "test": "vp run -r test",
+    "changeset": "changeset",
+    "changeset:status": "changeset status",
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
-    "vite-plus": "^0.2.8",
-    "oxfmt": "^0.62.0",
-    "oxlint": "^1.42.0",
-    "vitest": "^4.1.4",
-    "@effect/tsgo": "^0.22.0",
+    "@changesets/cli": "^3.0.1",
+    "vite-plus": "^0.3.0",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "vitest": "^4.1.11",
+    "@effect/tsgo": "0.38.0",
     "typescript": "7.0.2"
   },
   "engines": {
