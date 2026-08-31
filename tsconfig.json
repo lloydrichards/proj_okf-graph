@@ -1,5 +1,12 @@
 {
   "$schema": "./node_modules/@effect/tsgo/schema.json",
   "extends": "./packages/config-typescript/base.json",
-  "files": []
+  "files": [],
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }
 }
