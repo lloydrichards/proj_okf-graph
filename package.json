@@ -1,0 +1,33 @@
+{
+  "name": "proj_okf-graph",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "scripts": {
+    "build": "vp run -r build",
+    "dev": "vp run -r --parallel --no-cache dev",
+    "type-check": "vp run -r type-check",
+    "clean": "vp cache clean && vp run --no-cache --filter \"./apps/*\" --filter \"./packages/*\" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "test": "vp run -r test",
+    "prepare": "effect-tsgo patch"
+  },
+  "devDependencies": {
+    "vite-plus": "^0.2.8",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.42.0",
+    "vitest": "^4.1.4",
+    "@effect/tsgo": "^0.22.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
