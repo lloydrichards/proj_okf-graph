@@ -1,0 +1,9 @@
+{
+  "name": "proj_okf-graph",
+  "runtime": { "_tag": "bun" },
+  "typescript": "7",
+  "lint": "oxlint",
+  "format": "oxfmt",
+  "test": "vitest",
+  "monorepo": "vite-plus"
+}
