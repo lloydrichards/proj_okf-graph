@@ -1,0 +1,22 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run format:check
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run type-check
+      - run: bun run apps/okf-graph/dist/index.js --help
