@@ -1,12 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { EvaluationReport } from "@repo/domain/Evaluation";
-import type {
-  Bundle,
-  ConceptEdge,
-  ConceptNode,
-  OkfGraph,
-} from "@repo/domain/Okf";
-import { Effect, Graph, Layer, Schema } from "effect";
+import { type Bundle, graphFromBundle } from "@repo/domain/Okf";
+import { Effect, Layer, Schema } from "effect";
 import { EvaluationService } from "./EvaluationService";
 import { BundleNotFound, OkfService } from "./OkfService";
 
@@ -17,6 +12,14 @@ const bundle: Bundle = {
       id: "alpha",
       path: "alpha.md",
       frontmatter: { type: "Note", title: "Alpha" },
+      metadata: {
+        verified: [],
+        sources: [],
+        status: "stable",
+        trustTier: "unverified",
+        parameters: [],
+      },
+      metadataIssues: [],
       body: "Alpha body",
       document: { blocks: [] },
       links: [],
@@ -26,32 +29,12 @@ const bundle: Bundle = {
   logFiles: [],
 };
 
-const makeGraph = (): OkfGraph => {
-  const nodeIndex = new Map<string, Graph.NodeIndex>();
-  const graph = Graph.directed<ConceptNode, ConceptEdge>((mutable) => {
-    nodeIndex.set(
-      "alpha",
-      Graph.addNode(mutable, {
-        id: "alpha",
-        path: "alpha.md",
-        type: "Note",
-        tags: [],
-        title: "Alpha",
-      }),
-    );
-  });
-
-  return { graph, nodeIndex, unresolvedLinks: [] };
-};
-
-const graph = makeGraph();
+const graph = graphFromBundle(bundle);
 
 type OkfServiceShape = Effect.Success<typeof OkfService.make>;
 type OkfMakeResult = Effect.Success<ReturnType<OkfServiceShape["make"]>>;
 
-const makeEvaluationLayer = (
-  make: OkfServiceShape["make"],
-): Layer.Layer<EvaluationService> =>
+const makeEvaluationLayer = (make: OkfServiceShape["make"]) =>
   EvaluationService.Live.pipe(
     Layer.provide(Layer.mock(OkfService, { make })),
     Layer.satisfiesServicesType<never>(),

@@ -1,13 +1,17 @@
 import {
-  type Bundle,
   type Concept,
   ConceptFrontmatter,
   ConceptLink,
+  emptyOkfMetadata,
+  hasExplicitUtcOffset,
   type IndexFile,
   IndexFrontmatter,
   type LogFile,
+  metadataFromRecoveredFrontmatter,
+  OkfMetadataFrontmatter,
+  OkfMetadataRecoveredFrontmatter,
   graphFromBundle,
-  ResourceUri,
+  type ValidationIssue,
   type ValidationResult,
 } from "@repo/domain/Okf";
 import {
@@ -45,6 +49,42 @@ export class BundleInvalid extends Data.TaggedError("BundleInvalid")<{
 }> {}
 
 const RESERVED_NAMES = new Set(["index.md", "log.md"]);
+
+const warning = (id: string, reason: string) =>
+  ({
+    id,
+    source: "concept",
+    reason,
+    severity: "warning",
+  }) satisfies ValidationIssue;
+
+const conceptWarnings = (concept: Concept) => {
+  const issues = Arr.map(concept.metadataIssues, (issue) =>
+    warning(concept.id, `Invalid OKF v0.2 metadata: ${issue}`),
+  );
+  const timestamp = concept.frontmatter.timestamp;
+  if (timestamp !== undefined && !hasExplicitUtcOffset(timestamp)) {
+    issues.push(
+      warning(
+        concept.id,
+        `Invalid timestamp datetime "${timestamp}" — expected ISO 8601 with an explicit UTC offset`,
+      ),
+    );
+  }
+  if (
+    concept.frontmatter.type === "Attested Computation" &&
+    concept.metadata.runtime === undefined
+  ) {
+    issues.push(
+      warning(concept.id, "Attested Computation requires a non-empty runtime"),
+    );
+  }
+  const resource = concept.frontmatter.resource;
+  if (resource !== undefined && Str.isEmpty(Str.trim(resource))) {
+    issues.push(warning(concept.id, "resource must not be empty"));
+  }
+  return issues;
+};
 
 export class OkfService extends Context.Service<OkfService>()(
   "@repo/OkfService",
@@ -129,26 +169,20 @@ export class OkfService extends Context.Service<OkfService>()(
       ) {
         const parsed = yield* md.parseDocument(content);
 
-        if (Option.isSome(parsed.frontmatter)) {
-          return yield* new MarkdownParseError({
-            reason: "Frontmatter is not permitted in log.md",
-          });
-        }
-
         const invalidDateHeading = pipe(
           parsed.document.blocks,
-          Arr.findFirst(
-            (block) =>
-              block._tag === "Heading" &&
-              block.level === 2 &&
-              !/^\d{4}-\d{2}-\d{2}$/.test(
-                block.children
-                  .filter((child) => child._tag === "Text")
-                  .map((child) => child.value)
-                  .join("")
-                  .trim(),
-              ),
-          ),
+          Arr.findFirst((block) => {
+            if (block._tag !== "Heading" || block.level !== 2) return false;
+            const value = block.children
+              .filter((child) => child._tag === "Text")
+              .map((child) => child.value)
+              .join("")
+              .trim();
+            return (
+              !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+              Option.isNone(DateTime.make(value))
+            );
+          }),
         );
 
         if (Option.isSome(invalidDateHeading)) {
@@ -276,10 +310,26 @@ export class OkfService extends Context.Service<OkfService>()(
                   (e) => new MarkdownParseError({ reason: String(e) }),
                 ),
               );
+              const decodedMetadata = Schema.decodeUnknownResult(
+                OkfMetadataFrontmatter,
+              )(parsed.frontmatter.value, { errors: "all" });
+              const metadata = pipe(
+                Schema.decodeUnknownResult(OkfMetadataRecoveredFrontmatter)(
+                  parsed.frontmatter.value,
+                ),
+                Result.map(metadataFromRecoveredFrontmatter),
+                Result.getOrElse(() => emptyOkfMetadata),
+              );
+              const metadataIssues = Result.match(decodedMetadata, {
+                onSuccess: () => [],
+                onFailure: (error) => [String(error)],
+              });
               return Result.succeed({
                 id: pipe(rel, Str.replace(/\.md$/, "")),
                 path: rel,
                 frontmatter,
+                metadata,
+                metadataIssues,
                 body: parsed.body,
                 document: parsed.document,
                 links: parsed.links,
@@ -369,34 +419,7 @@ export class OkfService extends Context.Service<OkfService>()(
             severity: "warning" as const,
           }));
 
-          // Quality warnings: validate SHOULD-level constraints via Schema
-          const qualityIssues = pipe(
-            bundle.concepts,
-            Arr.flatMap((c) =>
-              Arr.getSomes([
-                pipe(
-                  Option.fromNullishOr(c.frontmatter.timestamp),
-                  Option.filter((ts) => Option.isNone(DateTime.make(ts))),
-                  Option.map((ts) => ({
-                    id: c.id,
-                    source: "concept" as const,
-                    reason: `Invalid timestamp format "${ts}" — expected ISO 8601 (YYYY-MM-DDTHH:mm:ssZ)`,
-                    severity: "warning" as const,
-                  })),
-                ),
-                pipe(
-                  Option.fromNullishOr(c.frontmatter.resource),
-                  Option.filter((uri) => !Schema.is(ResourceUri)(uri)),
-                  Option.map((uri) => ({
-                    id: c.id,
-                    source: "concept" as const,
-                    reason: `Invalid resource URI "${uri}" — expected a valid URL`,
-                    severity: "warning" as const,
-                  })),
-                ),
-              ]),
-            ),
-          );
+          const qualityIssues = Arr.flatMap(bundle.concepts, conceptWarnings);
 
           const knownIndexTargets = new Set([
             ...Arr.map(bundle.concepts, (concept) => concept.id),

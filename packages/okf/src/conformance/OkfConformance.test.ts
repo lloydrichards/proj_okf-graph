@@ -246,6 +246,24 @@ describe("OKF v0.2 conformance", () => {
           });
         }).pipe(Effect.provide(TestLayer)),
     );
+
+    it.effect(
+      "should omit provenance edges when a source escapes the bundle",
+      () =>
+        Effect.gen(function* () {
+          const root = yield* makeBundle({
+            "target.md": concept("type: Policy"),
+            "nested/source.md": concept(
+              "type: Metric\nsources: [{ resource: ../../target.md }]",
+            ),
+          });
+          const okf = yield* OkfService;
+
+          const { graph } = yield* okf.make(root);
+
+          expect(Array.from(Graph.edges(graph.graph))).toHaveLength(0);
+        }).pipe(Effect.provide(TestLayer)),
+    );
   });
 
   describe("§8, §9, and §12 — reserved files and versioning", () => {
@@ -306,10 +324,20 @@ describe("OKF v0.2 conformance", () => {
       }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("should accept log entries when grouped by ISO date", () =>
+    it.effect("should accept log frontmatter when entries use ISO dates", () =>
       Effect.gen(function* () {
         const root = yield* makeBundle({
-          "log.md": "# Log\n\n## 2026-09-01\n- **Update**: Added a concept.\n",
+          "log.md": [
+            "---",
+            "type: Log",
+            "title: Bundle history",
+            "---",
+            "",
+            "# Log",
+            "",
+            "## 2026-09-01",
+            "- **Update**: Added a concept.",
+          ].join("\n"),
         });
         const okf = yield* OkfService;
 
@@ -319,22 +347,20 @@ describe("OKF v0.2 conformance", () => {
       }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect.each([
-      { condition: "frontmatter", content: "---\ntitle: Log\n---\n\n# Log\n" },
-      {
-        condition: "a non-date level-two heading",
-        content: "# Log\n\n## Recent\n- Updated.\n",
-      },
-    ])("should reject log.md when it contains $condition", ({ content }) =>
-      Effect.gen(function* () {
-        const root = yield* makeBundle({ "log.md": content });
-        const okf = yield* OkfService;
+    it.effect.each(["Recent", "2026-99-99"])(
+      "should reject log.md when a level-two heading is $heading",
+      (heading) =>
+        Effect.gen(function* () {
+          const root = yield* makeBundle({
+            "log.md": `# Log\n\n## ${heading}\n- Updated.\n`,
+          });
+          const okf = yield* OkfService;
 
-        const error = yield* Effect.flip(okf.validate(root));
+          const error = yield* Effect.flip(okf.validate(root));
 
-        expect(error).toBeInstanceOf(BundleInvalid);
-        expect(error).toMatchObject({ issues: [{ file: "log.md" }] });
-      }).pipe(Effect.provide(TestLayer)),
+          expect(error).toBeInstanceOf(BundleInvalid);
+          expect(error).toMatchObject({ issues: [{ file: "log.md" }] });
+        }).pipe(Effect.provide(TestLayer)),
     );
   });
 
@@ -432,6 +458,49 @@ describe("OKF v0.2 conformance", () => {
             expect.objectContaining({
               reason: expect.stringContaining("Invalid OKF v0.2 metadata"),
               severity: "warning",
+            }),
+          );
+        }).pipe(Effect.provide(TestLayer)),
+    );
+
+    it.effect(
+      "should preserve valid metadata when another family is malformed",
+      () =>
+        Effect.gen(function* () {
+          const root = yield* makeBundle({
+            "policy.md": concept("type: Policy"),
+            "computation.md": concept(
+              [
+                "type: Attested Computation",
+                "status: archived",
+                "runtime: bigquery",
+                "verified: { by: human:reviewer, at: 2026-08-02T00:00:00Z }",
+                "sources: [{ resource: policy.md }]",
+              ].join("\n"),
+            ),
+          });
+          const okf = yield* OkfService;
+
+          const { bundle, graph } = yield* okf.make(root);
+          const metadata = bundle.concepts.find(
+            ({ id }) => id === "computation",
+          )?.metadata;
+          const result = yield* okf.validate(root);
+
+          expect(metadata).toMatchObject({
+            runtime: "bigquery",
+            trustTier: "human-reviewed",
+            sources: [{ resource: "policy.md" }],
+          });
+          expect(Array.from(Graph.edges(graph.graph))).toHaveLength(1);
+          expect(result.issues).toContainEqual(
+            expect.objectContaining({
+              reason: expect.stringContaining("Invalid OKF v0.2 metadata"),
+            }),
+          );
+          expect(result.issues).not.toContainEqual(
+            expect.objectContaining({
+              reason: "Attested Computation requires a non-empty runtime",
             }),
           );
         }).pipe(Effect.provide(TestLayer)),

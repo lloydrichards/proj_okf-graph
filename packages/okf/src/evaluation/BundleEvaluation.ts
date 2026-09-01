@@ -26,7 +26,9 @@ export const evaluateBundle = (bundle: Bundle) => {
           (concept) => (concept.frontmatter.tags?.length ?? 0) > 0,
         ),
         timestamp: coverageMetric(concepts, (concept) =>
-          isMeaningfulString(concept.frontmatter.timestamp),
+          isMeaningfulString(
+            concept.metadata.generated?.at ?? concept.frontmatter.timestamp,
+          ),
         ),
       },
       emptyBodyRate: proportion(count - nonEmptyBodies.length, count),
