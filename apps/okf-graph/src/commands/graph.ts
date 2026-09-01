@@ -1,5 +1,15 @@
 import { OkfService } from "@repo/okf";
-import { Array, Console, Effect, Graph, Match, Option, pipe } from "effect";
+import {
+  Array,
+  Console,
+  Data,
+  Effect,
+  Graph,
+  Match,
+  Option,
+  pipe,
+  Runtime,
+} from "effect";
 import { Command } from "effect/unstable/cli";
 import { Box, Flex } from "effect-boxes";
 import { bundlePath, conceptId } from "../args";
@@ -23,6 +33,30 @@ const formatNode = (node: DisplayNode): string =>
 const conceptNotFoundPayload = (conceptId: string) => ({
   error: "Concept not found",
   conceptId,
+});
+
+export class GraphConceptNotFound extends Data.TaggedError(
+  "GraphConceptNotFound",
+)<{
+  readonly conceptId: string;
+}> {
+  override readonly [Runtime.errorExitCode] = 1;
+  override readonly [Runtime.errorReported] = true;
+}
+
+const failConceptNotFound = Effect.fnUntraced(function* (
+  conceptId: string,
+  json: boolean,
+) {
+  yield* Console.log(
+    Match.value(json).pipe(
+      Match.when(true, () =>
+        JSON.stringify(conceptNotFoundPayload(conceptId), null, 2),
+      ),
+      Match.orElse(() => `Concept not found: ${conceptId}`),
+    ),
+  );
+  return yield* new GraphConceptNotFound({ conceptId });
 });
 
 const renderNodeList = (nodes: ReadonlyArray<DisplayNode>): Box.Box<never> =>
@@ -134,15 +168,7 @@ const neighbors = Command.make(
 
       const nodeIndex = graph.nodeIndex.get(conceptId);
       if (nodeIndex === undefined) {
-        yield* Console.log(
-          Match.value(json).pipe(
-            Match.when(true, () =>
-              JSON.stringify(conceptNotFoundPayload(conceptId), null, 2),
-            ),
-            Match.orElse(() => `Concept not found: ${conceptId}`),
-          ),
-        );
-        return;
+        return yield* failConceptNotFound(conceptId, json);
       }
 
       const node = yield* pipe(
@@ -301,27 +327,11 @@ const path = Command.make(
       const toIndex = graph.nodeIndex.get(to);
 
       if (fromIndex === undefined) {
-        yield* Console.log(
-          Match.value(json).pipe(
-            Match.when(true, () =>
-              JSON.stringify(conceptNotFoundPayload(from), null, 2),
-            ),
-            Match.orElse(() => `Concept not found: ${from}`),
-          ),
-        );
-        return;
+        return yield* failConceptNotFound(from, json);
       }
 
       if (toIndex === undefined) {
-        yield* Console.log(
-          Match.value(json).pipe(
-            Match.when(true, () =>
-              JSON.stringify(conceptNotFoundPayload(to), null, 2),
-            ),
-            Match.orElse(() => `Concept not found: ${to}`),
-          ),
-        );
-        return;
+        return yield* failConceptNotFound(to, json);
       }
 
       const result = Graph.dijkstra(graph.graph, {
