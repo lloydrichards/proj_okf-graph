@@ -1,5 +1,4 @@
-import type { Graph } from "effect";
-import { Schema, SchemaGetter } from "effect";
+import { Array as Arr, Graph, pipe, Schema, SchemaGetter } from "effect";
 import { MarkdownDocument } from "./Markdown";
 
 export const ConceptLink = Schema.TaggedUnion({
@@ -91,6 +90,13 @@ export const IndexFrontmatter = Schema.Struct({
 
 export type IndexFrontmatter = typeof IndexFrontmatter.Type;
 
+/** URI pattern for the SHOULD-level resource validation in OKF §4.1. */
+export const ResourceUri = Schema.String.check(
+  Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9+.-]*:\S+$/, {
+    description: "A valid URI (OKF §4.1)",
+  }),
+);
+
 export const LogFile = Schema.Struct({
   path: Schema.String,
   content: Schema.String,
@@ -143,6 +149,72 @@ export type OkfGraph = {
   readonly graph: Graph.DirectedGraph<ConceptNode, ConceptEdge>;
   readonly nodeIndex: ReadonlyMap<string, Graph.NodeIndex>;
   readonly unresolvedLinks: ReadonlyArray<UnresolvedLink>;
+};
+
+/** Derives the graph representation solely from an already decoded bundle. */
+export const graphFromBundle = (bundle: Bundle): OkfGraph => {
+  const nodeIndex = new Map<string, Graph.NodeIndex>();
+  const graph = Graph.directed<ConceptNode, ConceptEdge>((mutable) => {
+    for (const concept of bundle.concepts) {
+      nodeIndex.set(
+        concept.id,
+        Graph.addNode(
+          mutable,
+          ConceptNode.make({
+            id: concept.id,
+            path: concept.path,
+            type: concept.frontmatter.type,
+            tags: concept.frontmatter.tags ?? [],
+            title: concept.frontmatter.title,
+            description: concept.frontmatter.description,
+            resource: concept.frontmatter.resource,
+          }),
+        ),
+      );
+    }
+
+    for (const concept of bundle.concepts) {
+      const source = nodeIndex.get(concept.id);
+      if (source === undefined) continue;
+
+      for (const link of concept.links) {
+        if (link._tag !== "internal") continue;
+        const target = nodeIndex.get(link.target);
+        if (target === undefined) continue;
+        Graph.addEdge(
+          mutable,
+          source,
+          target,
+          ConceptEdge.make({
+            kind: "concept-link",
+            sourceId: concept.id,
+            targetId: link.target,
+            label: link.label,
+            relation: link.relation,
+          }),
+        );
+      }
+    }
+  });
+
+  return {
+    graph,
+    nodeIndex,
+    unresolvedLinks: pipe(
+      bundle.concepts,
+      Arr.flatMap((concept) =>
+        pipe(
+          concept.links,
+          Arr.filter((link) => link._tag === "broken"),
+          Arr.map(({ target, relation }) => ({
+            sourceId: concept.id,
+            targetId: target,
+            relation,
+          })),
+        ),
+      ),
+    ),
+  };
 };
 
 export const ValidationIssueSource = Schema.Literals([

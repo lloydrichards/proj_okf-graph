@@ -1,13 +1,13 @@
 import {
   type Bundle,
   type Concept,
-  ConceptEdge,
   ConceptFrontmatter,
   ConceptLink,
-  type ConceptNode,
-  ConceptNode as ConceptNodeSchema,
   type IndexFile,
+  IndexFrontmatter,
   type LogFile,
+  graphFromBundle,
+  ResourceUri,
   type ValidationResult,
 } from "@repo/domain/Okf";
 import {
@@ -17,9 +17,7 @@ import {
   DateTime,
   Effect,
   FileSystem,
-  Graph,
   Layer,
-  Match,
   Option,
   Path,
   pipe,
@@ -33,13 +31,6 @@ import {
   type RawLink,
 } from "./MarkdownService";
 import { SourceResolver } from "./SourceResolver";
-
-/** URI pattern for SHOULD-level resource validation (§4.1) */
-const ResourceUri = Schema.String.check(
-  Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9+.-]*:\S+$/, {
-    description: "A valid URI (OKF §4.1)",
-  }),
-);
 
 export class BundleNotFound extends Data.TaggedError("BundleNotFound")<{
   path: string;
@@ -117,29 +108,10 @@ export class OkfService extends Context.Service<OkfService>()(
           });
         }
 
-        if (
-          typeof parsed.frontmatter.value !== "object" ||
-          parsed.frontmatter.value === null ||
-          Array.isArray(parsed.frontmatter.value)
-        ) {
-          return yield* new MarkdownParseError({
-            reason: "Root index frontmatter must be a YAML object",
-          });
-        }
-
-        const invalidKeys = Object.keys(parsed.frontmatter.value).filter(
-          (key) => key !== "okf_version",
-        );
-
-        if (Arr.isArrayNonEmpty(invalidKeys)) {
-          return yield* new MarkdownParseError({
-            reason: `Unsupported root index frontmatter keys: ${invalidKeys.join(", ")}`,
-          });
-        }
-
-        return yield* Schema.decodeUnknownEffect(
-          Schema.Struct({ okf_version: Schema.optional(Schema.String) }),
-        )(parsed.frontmatter.value).pipe(
+        return yield* Schema.decodeUnknownEffect(IndexFrontmatter)(
+          parsed.frontmatter.value,
+          { onExcessProperty: "error" },
+        ).pipe(
           Effect.map(({ okf_version }) => ({
             path: rel,
             content,
@@ -360,125 +332,33 @@ export class OkfService extends Context.Service<OkfService>()(
         };
       });
 
-      const buildGraph = Effect.fn("buildGraph")((bundle: Bundle) =>
-        Effect.sync(() => {
-          // Derive node data
-          const nodes = Arr.map(bundle.concepts, (c) => ({
-            id: c.id,
-            data: Schema.decodeSync(ConceptNodeSchema)({
-              id: c.id,
-              path: c.path,
-              type: c.frontmatter.type,
-              tags: c.frontmatter.tags ?? [],
-              title: c.frontmatter.title,
-              description: c.frontmatter.description,
-              resource: c.frontmatter.resource,
-            }),
-          }));
-
-          // Flatten all links with their source concept
-          const allLinks = Arr.flatMap(bundle.concepts, (c) =>
-            Arr.map(c.links, (link) => ({ sourceId: c.id, link })),
-          );
-
-          const edgeIntents = pipe(
-            allLinks,
-            Arr.map(({ sourceId, link }) =>
-              pipe(
-                Match.value(link),
-                Match.tag("internal", ({ label, relation, target }) =>
-                  Option.some({ targetId: target, label, relation }),
-                ),
-                Match.orElse(() => Option.none()),
-                Option.map((intent) => ({ sourceId, ...intent })),
-              ),
+      const loadBundleGraph = Effect.fn("loadBundleGraph")(function* (
+        bundlePath: string,
+      ) {
+        const source = yield* sourceResolver
+          .resolve(bundlePath)
+          .pipe(
+            Effect.catchTag(
+              "SourceResolveError",
+              () => new BundleNotFound({ path: bundlePath }),
             ),
-            Arr.getSomes,
           );
+        const bundle = yield* loadBundle(source.bundlePath).pipe(
+          Effect.catchTag(
+            "PlatformError",
+            () => new BundleNotFound({ path: bundlePath }),
+          ),
+        );
 
-          const unresolvedLinks = pipe(
-            allLinks,
-            Arr.map(({ sourceId, link }) =>
-              pipe(
-                Match.value(link),
-                Match.tag("broken", ({ relation, target }) =>
-                  Option.some({ targetId: target, relation }),
-                ),
-                Match.orElse(() => Option.none()),
-                Option.map((unresolved) => ({ sourceId, ...unresolved })),
-              ),
-            ),
-            Arr.getSomes,
-          );
-
-          // Build graph from derived data
-          const nodeIndex = new Map<string, Graph.NodeIndex>();
-
-          const graph = Graph.directed<ConceptNode, ConceptEdge>((mutable) => {
-            for (const node of nodes) {
-              nodeIndex.set(node.id, Graph.addNode(mutable, node.data));
-            }
-
-            for (const intent of edgeIntents) {
-              const sourceIdx = nodeIndex.get(intent.sourceId);
-              const targetIdx = nodeIndex.get(intent.targetId);
-              if (sourceIdx === undefined || targetIdx === undefined) continue;
-
-              Graph.addEdge(
-                mutable,
-                sourceIdx,
-                targetIdx,
-                Schema.decodeSync(ConceptEdge)({
-                  kind: "concept-link",
-                  ...intent,
-                }),
-              );
-            }
-          });
-
-          return { graph, nodeIndex, unresolvedLinks };
-        }),
-      );
+        return { bundle, graph: graphFromBundle(bundle) } as const;
+      });
 
       return {
         make: Effect.fn("make")(function* (bundlePath: string) {
-          const source = yield* sourceResolver
-            .resolve(bundlePath)
-            .pipe(
-              Effect.catchTag(
-                "SourceResolveError",
-                () => new BundleNotFound({ path: bundlePath }),
-              ),
-            );
-          const bundle = yield* loadBundle(source.bundlePath).pipe(
-            Effect.catchTag(
-              "PlatformError",
-              () => new BundleNotFound({ path: bundlePath }),
-            ),
-          );
-          const graph = yield* buildGraph(bundle);
-
-          return {
-            bundle,
-            graph,
-          } as const;
+          return yield* loadBundleGraph(bundlePath);
         }),
         validate: Effect.fn("validate")(function* (bundlePath: string) {
-          const source = yield* sourceResolver
-            .resolve(bundlePath)
-            .pipe(
-              Effect.catchTag(
-                "SourceResolveError",
-                () => new BundleNotFound({ path: bundlePath }),
-              ),
-            );
-          const bundle = yield* loadBundle(source.bundlePath).pipe(
-            Effect.catchTag(
-              "PlatformError",
-              () => new BundleNotFound({ path: bundlePath }),
-            ),
-          );
-          const graph = yield* buildGraph(bundle);
+          const { bundle, graph } = yield* loadBundleGraph(bundlePath);
 
           // Broken links are warnings per OKF spec §5.3:
           // "Consumers MUST tolerate broken links"

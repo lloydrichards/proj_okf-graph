@@ -53,9 +53,7 @@ describe("OkfService", () => {
         }
         expect(error.issues).toHaveLength(1);
         expect(error.issues[0]?.file).toBe("index.md");
-        expect(error.issues[0]?.reason).toContain(
-          "Unsupported root index frontmatter keys",
-        );
+        expect(error.issues[0]?.reason).toContain('at ["title"]');
       }).pipe(Effect.provide(TestLayer)),
   );
 
