@@ -222,7 +222,7 @@ describe("OkfService", () => {
           id: "concept",
           source: "concept",
           reason:
-            'Invalid timestamp format "2026-99-99T25:61:61Z" — expected ISO 8601 (YYYY-MM-DDTHH:mm:ssZ)',
+            'Invalid timestamp datetime "2026-99-99T25:61:61Z" — expected ISO 8601 with an explicit UTC offset',
           severity: "warning",
         });
       }).pipe(Effect.provide(TestLayer)),

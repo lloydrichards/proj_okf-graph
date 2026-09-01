@@ -1,6 +1,6 @@
 # OKF Graph
 
-Explore and validate [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundles from your terminal.
+Explore and validate [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) bundles from your terminal.
 
 [![npm version](https://img.shields.io/npm/v/okf-graph)](https://www.npmjs.com/package/okf-graph)
 
@@ -52,8 +52,8 @@ Commands accept local directories and GitHub tree URLs like the example above.
 ## Learn more
 
 - [okf-graph on npm](https://www.npmjs.com/package/okf-graph)
-- [Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
-- [Google Knowledge Catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog)
+- [Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+- [Open Knowledge Format on GitHub](https://github.com/GoogleCloudPlatform/open-knowledge-format)
 - [edu_effect-okf](https://github.com/lloydrichards/edu_effect-okf), the learning project that preceded this CLI
 
 ## Development
@@ -68,6 +68,22 @@ bun test
 ```
 
 The repository includes [`examples/house-plants-okf`](./examples/house-plants-okf), a sample bundle for local exploration.
+
+## Explore other OKF bundles
+
+The official Open Knowledge Format repository includes several OKF v0.2 bundles covering different domains and graph shapes:
+
+- [GA4](https://github.com/GoogleCloudPlatform/open-knowledge-format/tree/main/bundles/ga4) — Google Analytics e-commerce data, events, and metrics.
+- [Stack Overflow](https://github.com/GoogleCloudPlatform/open-knowledge-format/tree/main/bundles/stackoverflow) — a larger, densely connected public dataset.
+- [Bitcoin](https://github.com/GoogleCloudPlatform/open-knowledge-format/tree/main/bundles/crypto_bitcoin) — blocks, transactions, inputs, and outputs.
+- [Acme Retail](https://github.com/GoogleCloudPlatform/open-knowledge-format/tree/main/bundles/acme_retail) — metrics, policies, attested computations, and bundle history.
+
+Pass any bundle URL directly to `okf-graph`:
+
+```bash
+npx okf-graph@latest validate \
+  https://github.com/GoogleCloudPlatform/open-knowledge-format/tree/main/bundles/acme_retail
+```
 
 ## License
 
