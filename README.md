@@ -1,50 +1,60 @@
 # OKF Graph
 
-`okf-graph` is a command-line tool for reading, validating, and exploring [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundles. It builds a directed graph from Markdown links so you can inspect concepts, relationships, navigation, and structural quality.
+Explore and validate [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundles from your terminal.
 
-## Install
+[![npm version](https://img.shields.io/npm/v/okf-graph)](https://www.npmjs.com/package/okf-graph)
+
+`okf-graph` turns the Markdown links in an OKF bundle into a directed graph. Use it to find broken links, inspect individual concepts, explore relationships, and understand the structure of a knowledge bundle.
+
+![Validate and explore an OKF bundle with okf-graph](./media/okf-graph-demo.gif)
+
+## Quick start
+
+Install [Bun](https://bun.sh) first. The examples use `npx` to run the latest published version without installing it globally.
+
+```bash
+npx okf-graph@latest graph neighbors \
+  https://github.com/lloydrichards/proj_okf-graph/tree/main/examples/house-plants-okf \
+  propagation/leaf-cuttings
+```
+
+An OKF bundle, like the included [`house-plants-okf`](./examples/house-plants-okf), is a directory of Markdown concept files with YAML frontmatter. Links between those files express relationships as a directed graph.
+
+## Explore a bundle
+
+```bash
+# Use the example bundle for the commands below
+BUNDLE="https://github.com/lloydrichards/proj_okf-graph/tree/main/examples/house-plants-okf"
+
+# Read a concept and explore its local graph interactively
+npx okf-graph@latest concept "$BUNDLE" foundations/houseplant --interactive
+
+# Print a concept's neighbors directly
+npx okf-graph@latest graph neighbors "$BUNDLE" foundations/houseplant
+
+# Validate the structure and links in your own bundle
+npx okf-graph@latest validate path/to/your-bundle
+```
+
+`foundations/houseplant` is a concept ID: the path to its Markdown file inside the bundle, without the `.md` extension. Run `npx okf-graph@latest --help` to discover commands, then `npx okf-graph@latest <command> --help` for options such as machine-readable JSON output.
+
+## Install globally
+
+Install the command if you use it regularly:
 
 ```bash
 npm install --global okf-graph
-```
-
-The CLI requires Bun. Install it from [bun.sh](https://bun.sh), then run:
-
-```bash
 okf-graph --help
 ```
 
-## Usage
+Commands accept local directories and GitHub tree URLs like the example above.
 
-Pass a local OKF bundle directory or a supported Git source to each command.
+## Learn more
 
-```bash
-# Validate document structure and cross-links.
-okf-graph validate path/to/bundle
-
-# View a concept card.
-okf-graph concept path/to/bundle foundations/houseplant
-
-# Browse a concept's local graph interactively.
-okf-graph concept path/to/bundle foundations/houseplant --interactive
-
-# Print graph statistics and Mermaid diagram source.
-okf-graph graph path/to/bundle
-
-# Inspect incoming and outgoing links for a concept.
-okf-graph graph neighbors path/to/bundle foundations/houseplant
-
-# Find the shortest directed path between two concepts.
-okf-graph graph path path/to/bundle foundations/houseplant care/watering
-
-# Render the bundle index documents.
-okf-graph bundle index path/to/bundle
-
-# Evaluate structural properties of the bundle.
-okf-graph eval path/to/bundle
-```
-
-Use `--json` with `validate`, `graph`, `graph neighbors`, `graph path`, `graph topologies`, or `eval` when consuming output programmatically. Use `eval --schema` to include the evaluation JSON Schema, and `eval --output report.json` to save an evaluation report.
+- [okf-graph on npm](https://www.npmjs.com/package/okf-graph)
+- [Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+- [Google Knowledge Catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog)
+- [edu_effect-okf](https://github.com/lloydrichards/edu_effect-okf), the learning project that preceded this CLI
 
 ## Development
 
@@ -53,9 +63,11 @@ Clone the repository, install dependencies with Bun, and run the CLI from the re
 ```bash
 bun install
 bun start -- --help
+bun start -- graph path examples/house-plants-okf foundations/houseplant care/watering
+bun test
 ```
 
-The repository includes `house-plants-okf`, a sample bundle for local exploration.
+The repository includes [`examples/house-plants-okf`](./examples/house-plants-okf), a sample bundle for local exploration.
 
 ## License
 
