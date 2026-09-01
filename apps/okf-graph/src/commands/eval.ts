@@ -61,5 +61,7 @@ export const evaluate = Command.make(
       }
     }).pipe(Effect.provide(EvaluationService.Live)),
 ).pipe(
-  Command.withDescription("Explore an OKF bundle's structural properties"),
+  Command.withDescription(
+    "Explore an OKF bundle's structural properties [experimental]",
+  ),
 );

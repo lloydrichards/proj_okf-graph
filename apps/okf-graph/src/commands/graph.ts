@@ -283,7 +283,11 @@ const topologies = Command.make(
         ),
       );
     }),
-).pipe(Command.withDescription("Print top-level graph topology neighborhoods"));
+).pipe(
+  Command.withDescription(
+    "Print top-level graph topology neighborhoods [experimental]",
+  ),
+);
 
 const path = Command.make(
   "path",
