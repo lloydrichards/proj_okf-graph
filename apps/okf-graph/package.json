@@ -1,6 +1,6 @@
 {
   "name": "okf-graph",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A CLI for reading, validating, and exploring Open Knowledge Format bundles.",
   "type": "module",
   "bin": {
