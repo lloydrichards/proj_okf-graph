@@ -1,5 +1,15 @@
 # okf-graph
 
+## 0.2.0
+
+### Minor Changes
+
+- 8c80b9d: The CLI now supports OKF v0.2 metadata, lifecycle, trust, provenance, and timestamp validation.
+
+### Patch Changes
+
+- 15c2b48: Index validation now recognizes directory links that resolve to an existing index file.
+
 ## 0.1.1
 
 ### Patch Changes
