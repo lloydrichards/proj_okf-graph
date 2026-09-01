@@ -2,14 +2,14 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { MarkdownService, OkfService } from "@repo/okf";
-import { Cause, Console, Effect, Layer, Option } from "effect";
+import { Cause, Console, Effect, Layer, Option, Runtime } from "effect";
 import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import packageJson from "../package.json" with { type: "json" };
 import { bundle } from "./commands/bundle";
 import { concept } from "./commands/concept";
 import { evaluate } from "./commands/eval";
-import { graph } from "./commands/graph";
+import { graph, GraphConceptNotFound } from "./commands/graph";
 import { validate, ValidateCommandFailed } from "./commands/validate";
 import { DevToolsLive } from "./observability/DevTools";
 
@@ -35,6 +35,13 @@ root.pipe(
   Effect.catchCause((cause) =>
     Effect.gen(function* () {
       const failure = Cause.findErrorOption(cause);
+      if (
+        Option.isSome(failure) &&
+        failure.value instanceof GraphConceptNotFound
+      ) {
+        process.exitCode = failure.value[Runtime.errorExitCode];
+        return;
+      }
       if (
         Option.isSome(failure) &&
         failure.value instanceof ValidateCommandFailed
