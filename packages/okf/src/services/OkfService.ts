@@ -398,7 +398,13 @@ export class OkfService extends Context.Service<OkfService>()(
             ),
           );
 
-          const knownIds = new Set(Arr.map(bundle.concepts, (c) => c.id));
+          const knownIndexTargets = new Set([
+            ...Arr.map(bundle.concepts, (concept) => concept.id),
+            ...Arr.flatMap(bundle.indexFiles, (index) => [
+              pipe(index.path, Str.replace(/\.md$/, "")),
+              pipe(index.path, Str.replace(/index\.md$/, "")),
+            ]),
+          ]);
           const indexLinkIssues = yield* Effect.forEach(
             bundle.indexFiles,
             Effect.fn(function* (index) {
@@ -409,7 +415,7 @@ export class OkfService extends Context.Service<OkfService>()(
               );
               return pipe(
                 parsed.links,
-                Arr.map(classifyLink(sourceId, knownIds)),
+                Arr.map(classifyLink(sourceId, knownIndexTargets)),
                 Arr.filter((link) => link._tag === "broken"),
                 Arr.map((link) => ({
                   id: `${index.path}->${link.target}`,

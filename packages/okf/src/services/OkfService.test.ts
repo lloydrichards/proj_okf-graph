@@ -110,6 +110,55 @@ describe("OkfService", () => {
   );
 
   it.effect(
+    "should accept directory and explicit index links when the target index exists",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const okf = yield* OkfService;
+        const dir = yield* fs.makeTempDirectoryScoped({
+          prefix: "okf-index-navigation-",
+        });
+
+        yield* fs.makeDirectory(`${dir}/section`);
+        yield* fs.writeFileString(
+          `${dir}/index.md`,
+          "See [directory](./section/) and [index](./section/index.md).\n",
+        );
+        yield* fs.writeFileString(`${dir}/section/index.md`, "# Section\n");
+
+        const result = yield* okf.validate(dir);
+
+        expect(result.issues).toHaveLength(0);
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect(
+    "should report a warning when an index directory link has no target",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const okf = yield* OkfService;
+        const dir = yield* fs.makeTempDirectoryScoped({
+          prefix: "okf-missing-index-directory-",
+        });
+
+        yield* fs.writeFileString(
+          `${dir}/index.md`,
+          "See [missing](./missing/).\n",
+        );
+
+        const result = yield* okf.validate(dir);
+
+        expect(result.issues).toContainEqual({
+          id: "index.md->missing/",
+          source: "index",
+          reason: "Broken internal link from index.md to missing/",
+          severity: "warning",
+        });
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect(
     "should accept absolute non-HTTP URIs when validating a bundle",
     () =>
       Effect.gen(function* () {
