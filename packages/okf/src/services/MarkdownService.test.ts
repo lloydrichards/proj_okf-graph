@@ -3,91 +3,125 @@ import { Effect } from "effect";
 import { MarkdownService } from "./MarkdownService";
 
 describe("MarkdownService", () => {
+  it.effect("should preserve YAML frontmatter when parsing a document", () =>
+    Effect.gen(function* () {
+      const markdown = yield* MarkdownService;
+      const parsed = yield* markdown.parseDocument("---\ntitle: Demo\n---");
+
+      expect(parsed.document.blocks).toEqual([
+        { _tag: "Frontmatter", value: "title: Demo" },
+      ]);
+    }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
+  it.effect("should map headings when parsing a document", () =>
+    Effect.gen(function* () {
+      const markdown = yield* MarkdownService;
+      const parsed = yield* markdown.parseDocument("# Heading");
+
+      expect(parsed.document.blocks).toEqual([
+        {
+          _tag: "Heading",
+          level: 1,
+          children: [{ _tag: "Text", value: "Heading" }],
+        },
+      ]);
+    }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
   it.effect(
-    "parses a markdown document into a TUI-friendly document shape",
+    "should preserve inline links and code when parsing a paragraph",
     () =>
       Effect.gen(function* () {
         const markdown = yield* MarkdownService;
-        const parsed = yield* markdown.parseDocument(`---
-title: Demo
----
+        const parsed = yield* markdown.parseDocument(
+          "Paragraph with [link](https://example.com) and `code`.",
+        );
 
-# Heading
-
-Paragraph with [link](https://example.com) and \`code\`.
-
-- first item
-- second item
-
-> quoted text
-
-\`\`\`ts
-const x = 1
-\`\`\`
-`);
-
-        expect(parsed.document).toEqual({
-          blocks: [
-            { _tag: "Frontmatter", value: "title: Demo" },
-            {
-              _tag: "Heading",
-              level: 1,
-              children: [{ _tag: "Text", value: "Heading" }],
-            },
-            {
-              _tag: "Paragraph",
-              children: [
-                { _tag: "Text", value: "Paragraph with " },
-                {
-                  _tag: "Link",
-                  url: "https://example.com",
-                  title: undefined,
-                  children: [{ _tag: "Text", value: "link" }],
-                },
-                { _tag: "Text", value: " and " },
-                { _tag: "InlineCode", value: "code" },
-                { _tag: "Text", value: "." },
-              ],
-            },
-            {
-              _tag: "List",
-              ordered: false,
-              start: undefined,
-              items: [
-                [
-                  {
-                    _tag: "Paragraph",
-                    children: [{ _tag: "Text", value: "first item" }],
-                  },
-                ],
-                [
-                  {
-                    _tag: "Paragraph",
-                    children: [{ _tag: "Text", value: "second item" }],
-                  },
-                ],
-              ],
-            },
-            {
-              _tag: "Blockquote",
-              children: [
-                {
-                  _tag: "Paragraph",
-                  children: [{ _tag: "Text", value: "quoted text" }],
-                },
-              ],
-            },
-            {
-              _tag: "CodeBlock",
-              value: "const x = 1",
-              language: "ts",
-            },
-          ],
-        });
+        expect(parsed.document.blocks).toEqual([
+          {
+            _tag: "Paragraph",
+            children: [
+              { _tag: "Text", value: "Paragraph with " },
+              {
+                _tag: "Link",
+                url: "https://example.com",
+                title: undefined,
+                children: [{ _tag: "Text", value: "link" }],
+              },
+              { _tag: "Text", value: " and " },
+              { _tag: "InlineCode", value: "code" },
+              { _tag: "Text", value: "." },
+            ],
+          },
+        ]);
       }).pipe(Effect.provide(MarkdownService.layer)),
   );
 
-  it.effect("extracts markdown link titles as raw link metadata", () =>
+  it.effect("should map list items when parsing a document", () =>
+    Effect.gen(function* () {
+      const markdown = yield* MarkdownService;
+      const parsed = yield* markdown.parseDocument(
+        "- first item\n- second item",
+      );
+
+      expect(parsed.document.blocks).toEqual([
+        {
+          _tag: "List",
+          ordered: false,
+          start: undefined,
+          items: [
+            [
+              {
+                _tag: "Paragraph",
+                children: [{ _tag: "Text", value: "first item" }],
+              },
+            ],
+            [
+              {
+                _tag: "Paragraph",
+                children: [{ _tag: "Text", value: "second item" }],
+              },
+            ],
+          ],
+        },
+      ]);
+    }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
+  it.effect("should map blockquotes when parsing a document", () =>
+    Effect.gen(function* () {
+      const markdown = yield* MarkdownService;
+      const parsed = yield* markdown.parseDocument("> quoted text");
+
+      expect(parsed.document.blocks).toEqual([
+        {
+          _tag: "Blockquote",
+          children: [
+            {
+              _tag: "Paragraph",
+              children: [{ _tag: "Text", value: "quoted text" }],
+            },
+          ],
+        },
+      ]);
+    }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
+  it.effect(
+    "should preserve code language when parsing a fenced code block",
+    () =>
+      Effect.gen(function* () {
+        const markdown = yield* MarkdownService;
+        const parsed = yield* markdown.parseDocument("```ts\nconst x = 1\n```");
+
+        expect(parsed.document.blocks).toEqual([
+          { _tag: "CodeBlock", value: "const x = 1", language: "ts" },
+        ]);
+      }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
+  it.effect("should extract a title when a Markdown link has one", () =>
     Effect.gen(function* () {
       const markdown = yield* MarkdownService;
       const parsed = yield* markdown.parse(
@@ -104,20 +138,22 @@ const x = 1
     }).pipe(Effect.provide(MarkdownService.layer)),
   );
 
-  it.effect("extracts reference links as raw link metadata", () =>
-    Effect.gen(function* () {
-      const markdown = yield* MarkdownService;
-      const parsed = yield* markdown.parse(
-        'Read the [guide][g].\n\n[g]: /guide.md "reference"',
-      );
+  it.effect(
+    "should resolve metadata when a link uses a reference definition",
+    () =>
+      Effect.gen(function* () {
+        const markdown = yield* MarkdownService;
+        const parsed = yield* markdown.parse(
+          'Read the [guide][g].\n\n[g]: /guide.md "reference"',
+        );
 
-      expect(parsed.links).toEqual([
-        { label: "guide", target: "/guide.md", title: "reference" },
-      ]);
-    }).pipe(Effect.provide(MarkdownService.layer)),
+        expect(parsed.links).toEqual([
+          { label: "guide", target: "/guide.md", title: "reference" },
+        ]);
+      }).pipe(Effect.provide(MarkdownService.layer)),
   );
 
-  it.effect("preserves image alt text in the document", () =>
+  it.effect("should preserve image alt text when mapping an image", () =>
     Effect.gen(function* () {
       const markdown = yield* MarkdownService;
       const parsed = yield* markdown.parseDocument(

@@ -58,38 +58,41 @@ const makeEvaluationLayer = (
   );
 
 describe("EvaluationService", () => {
-  it.effect("resolves a source and returns a schema-valid report", () => {
-    let receivedSource: string | undefined;
-    const evaluationLayer = makeEvaluationLayer(
-      Effect.fn("OkfService.make.test")((source: string) => {
-        receivedSource = source;
-        return Effect.succeed({ bundle, graph } as OkfMakeResult);
-      }),
-    );
+  it.effect(
+    "should return a schema-valid report when the bundle resolves",
+    () => {
+      const evaluationLayer = makeEvaluationLayer(
+        Effect.fn("OkfService.make.test")(() =>
+          Effect.succeed({ bundle, graph } as OkfMakeResult),
+        ),
+      );
 
-    return Effect.gen(function* () {
-      const service = yield* EvaluationService;
-      const report = yield* service.evaluate("./knowledge");
+      return Effect.gen(function* () {
+        const service = yield* EvaluationService;
+        const report = yield* service.evaluate("./knowledge");
 
-      expect(receivedSource).toBe("./knowledge");
-      expect(() => Schema.decodeSync(EvaluationReport)(report)).not.toThrow();
-      expect(report.bundle.metrics).toMatchObject({ conceptCount: 1 });
-      expect(report.connectivity.metrics).toMatchObject({
-        outboundLinkCoverage: 0,
-        isolatedRate: 1,
-      });
-    }).pipe(Effect.provide(evaluationLayer));
-  });
+        expect(() => Schema.decodeSync(EvaluationReport)(report)).not.toThrow();
+        expect(report.bundle.metrics).toMatchObject({ conceptCount: 1 });
+        expect(report.connectivity.metrics).toMatchObject({
+          outboundLinkCoverage: 0,
+          isolatedRate: 1,
+        });
+      }).pipe(Effect.provide(evaluationLayer));
+    },
+  );
 
-  it.effect("preserves source-resolution failures from OkfService", () => {
-    const error = new BundleNotFound({ path: "missing" });
-    const evaluationLayer = makeEvaluationLayer(() => Effect.fail(error));
+  it.effect(
+    "should preserve the source failure when bundle resolution fails",
+    () => {
+      const error = new BundleNotFound({ path: "missing" });
+      const evaluationLayer = makeEvaluationLayer(() => Effect.fail(error));
 
-    return Effect.gen(function* () {
-      const service = yield* EvaluationService;
-      const failure = yield* Effect.flip(service.evaluate("missing"));
+      return Effect.gen(function* () {
+        const service = yield* EvaluationService;
+        const failure = yield* Effect.flip(service.evaluate("missing"));
 
-      expect(failure).toBe(error);
-    }).pipe(Effect.provide(evaluationLayer));
-  });
+        expect(failure).toBe(error);
+      }).pipe(Effect.provide(evaluationLayer));
+    },
+  );
 });

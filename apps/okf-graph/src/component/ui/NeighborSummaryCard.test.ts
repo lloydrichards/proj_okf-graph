@@ -33,7 +33,7 @@ const render = (
   );
 
 describe("NeighborSummaryCard", () => {
-  it("renders an expandable outgoing neighbor with a route graph", () => {
+  it("should render route and navigation controls when the neighbor is outgoing", () => {
     expect(render()).toBe(
       expected(
         String.stripMargin(`
@@ -61,32 +61,18 @@ describe("NeighborSummaryCard", () => {
     );
   });
 
-  it("explains how to browse navigation history", () => {
-    expect(render()).toContain("Left/Right  browse history");
-  });
+  it("should identify the current center when the direction is self", () => {
+    const rendered = render({
+      title: "Introduction to Fractions",
+      reference: "math/fractions/intro.md",
+      type: "lesson",
+      pathLabels: [],
+      direction: "self",
+      incoming: 3,
+      outgoing: 5,
+    });
 
-  it("renders self as the current center", () => {
-    expect(
-      render({
-        title: "Introduction to Fractions",
-        reference: "math/fractions/intro.md",
-        type: "lesson",
-        pathLabels: [],
-        direction: "self",
-        incoming: 3,
-        outgoing: 5,
-      }),
-    ).toContain("current center");
-    expect(
-      render({
-        title: "Introduction to Fractions",
-        reference: "math/fractions/intro.md",
-        type: "lesson",
-        pathLabels: [],
-        direction: "self",
-        incoming: 3,
-        outgoing: 5,
-      }),
-    ).toContain("Enter  stay centered");
+    expect(rendered).toContain("current center");
+    expect(rendered).toContain("Enter  stay centered");
   });
 });

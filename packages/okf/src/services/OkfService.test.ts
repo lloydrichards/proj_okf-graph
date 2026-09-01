@@ -9,51 +9,57 @@ const TestLayer = Layer.mergeAll(OkfService.layer, MarkdownService.layer).pipe(
 );
 
 describe("OkfService", () => {
-  it.effect("reports a missing local bundle", () =>
-    Effect.gen(function* () {
-      const okf = yield* OkfService;
-      const error = yield* Effect.flip(
-        okf.validate("/tmp/okf-bundle-that-does-not-exist"),
-      );
+  it.effect(
+    "should report BundleNotFound when the local bundle is missing",
+    () =>
+      Effect.gen(function* () {
+        const okf = yield* OkfService;
+        const error = yield* Effect.flip(
+          okf.validate("/tmp/okf-bundle-that-does-not-exist"),
+        );
 
-      expect(error).toBeInstanceOf(BundleNotFound);
-      expect(error).toMatchObject({
-        _tag: "BundleNotFound",
-        path: "/tmp/okf-bundle-that-does-not-exist",
-      });
-    }).pipe(Effect.provide(TestLayer)),
+        expect(error).toBeInstanceOf(BundleNotFound);
+        expect(error).toMatchObject({
+          _tag: "BundleNotFound",
+          path: "/tmp/okf-bundle-that-does-not-exist",
+        });
+      }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("rejects reserved files with invalid structure", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const okf = yield* OkfService;
-      const dir = yield* fs.makeTempDirectoryScoped({ prefix: "okf-invalid-" });
+  it.effect(
+    "should reject a bundle when root index frontmatter has unsupported keys",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const okf = yield* OkfService;
+        const dir = yield* fs.makeTempDirectoryScoped({
+          prefix: "okf-invalid-",
+        });
 
-      yield* fs.writeFileString(
-        `${dir}/index.md`,
-        `---\ntitle: Invalid\n---\n\n# Index\n`,
-      );
-      yield* fs.writeFileString(
-        `${dir}/concept.md`,
-        `---\ntype: Note\n---\n\nHello\n`,
-      );
+        yield* fs.writeFileString(
+          `${dir}/index.md`,
+          `---\ntitle: Invalid\n---\n\n# Index\n`,
+        );
+        yield* fs.writeFileString(
+          `${dir}/concept.md`,
+          `---\ntype: Note\n---\n\nHello\n`,
+        );
 
-      const error = yield* Effect.flip(okf.validate(dir));
+        const error = yield* Effect.flip(okf.validate(dir));
 
-      expect(error).toBeInstanceOf(BundleInvalid);
-      if (error._tag !== "BundleInvalid") {
-        throw new Error(`Expected BundleInvalid, got ${error._tag}`);
-      }
-      expect(error.issues).toHaveLength(1);
-      expect(error.issues[0]?.file).toBe("index.md");
-      expect(error.issues[0]?.reason).toContain(
-        "Unsupported root index frontmatter keys",
-      );
-    }).pipe(Effect.provide(TestLayer)),
+        expect(error).toBeInstanceOf(BundleInvalid);
+        if (error._tag !== "BundleInvalid") {
+          throw new Error(`Expected BundleInvalid, got ${error._tag}`);
+        }
+        expect(error.issues).toHaveLength(1);
+        expect(error.issues[0]?.file).toBe("index.md");
+        expect(error.issues[0]?.reason).toContain(
+          "Unsupported root index frontmatter keys",
+        );
+      }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("reports broken internal links as warnings (OKF §5.3)", () =>
+  it.effect("should report a warning when a concept link is broken", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const okf = yield* OkfService;
@@ -81,7 +87,7 @@ describe("OkfService", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("reports broken index links as warnings", () =>
+  it.effect("should report a warning when an index link is broken", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const okf = yield* OkfService;
@@ -105,24 +111,26 @@ describe("OkfService", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("accepts non-HTTP absolute URIs", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const okf = yield* OkfService;
-      const dir = yield* fs.makeTempDirectoryScoped({ prefix: "okf-uri-" });
+  it.effect(
+    "should accept absolute non-HTTP URIs when validating a bundle",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const okf = yield* OkfService;
+        const dir = yield* fs.makeTempDirectoryScoped({ prefix: "okf-uri-" });
 
-      yield* fs.writeFileString(
-        `${dir}/concept.md`,
-        `---\ntype: Note\nresource: urn:isbn:9780140328721\n---\n\n[Email](mailto:plants@example.com).\n`,
-      );
+        yield* fs.writeFileString(
+          `${dir}/concept.md`,
+          `---\ntype: Note\nresource: urn:isbn:9780140328721\n---\n\n[Email](mailto:plants@example.com).\n`,
+        );
 
-      const result = yield* okf.validate(dir);
+        const result = yield* okf.validate(dir);
 
-      expect(result.issues).toHaveLength(0);
-    }).pipe(Effect.provide(TestLayer)),
+        expect(result.issues).toHaveLength(0);
+      }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("preserves internal links with fragments", () =>
+  it.effect("should resolve an internal link when it includes a fragment", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const okf = yield* OkfService;
@@ -145,33 +153,35 @@ describe("OkfService", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("warns about impossible ISO 8601 timestamps", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const okf = yield* OkfService;
-      const dir = yield* fs.makeTempDirectoryScoped({
-        prefix: "okf-invalid-timestamp-",
-      });
+  it.effect(
+    "should warn without invalidating a bundle when a timestamp is impossible",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const okf = yield* OkfService;
+        const dir = yield* fs.makeTempDirectoryScoped({
+          prefix: "okf-invalid-timestamp-",
+        });
 
-      yield* fs.writeFileString(
-        `${dir}/concept.md`,
-        `---\ntype: Note\ntimestamp: 2026-99-99T25:61:61Z\n---\n\nHello\n`,
-      );
+        yield* fs.writeFileString(
+          `${dir}/concept.md`,
+          `---\ntype: Note\ntimestamp: 2026-99-99T25:61:61Z\n---\n\nHello\n`,
+        );
 
-      const result = yield* okf.validate(dir);
+        const result = yield* okf.validate(dir);
 
-      expect(result.valid).toBe(true);
-      expect(result.issues).toContainEqual({
-        id: "concept",
-        source: "concept",
-        reason:
-          'Invalid timestamp format "2026-99-99T25:61:61Z" — expected ISO 8601 (YYYY-MM-DDTHH:mm:ssZ)',
-        severity: "warning",
-      });
-    }).pipe(Effect.provide(TestLayer)),
+        expect(result.valid).toBe(true);
+        expect(result.issues).toContainEqual({
+          id: "concept",
+          source: "concept",
+          reason:
+            'Invalid timestamp format "2026-99-99T25:61:61Z" — expected ISO 8601 (YYYY-MM-DDTHH:mm:ssZ)',
+          severity: "warning",
+        });
+      }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("uses markdown link titles as graph edge relations", () =>
+  it.effect("should use a Markdown link title as a graph edge relation", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const okf = yield* OkfService;

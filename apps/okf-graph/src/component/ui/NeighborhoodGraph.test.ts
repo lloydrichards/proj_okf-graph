@@ -99,7 +99,7 @@ const render = (
   );
 
 describe("NeighborhoodGraph", () => {
-  it("renders a bidirectional radius-2 neighborhood with flipped predecessors and cycle markers", () => {
+  it("should render both directions with cross-link markers when the radius is two", () => {
     const { graph, nodeIndex } = fixture();
 
     expect(
@@ -128,7 +128,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("renders only the selected node at radius 0", () => {
+  it("should render only the selected node when the radius is zero", () => {
     const { graph, nodeIndex } = fixture();
 
     expect(
@@ -149,7 +149,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("limits traversal to immediate neighbors at radius 1", () => {
+  it("should render only immediate neighbors when the radius is one", () => {
     const { graph, nodeIndex } = fixture();
 
     expect(
@@ -176,7 +176,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("can render only predecessors", () => {
+  it("should omit successors when the direction is incoming", () => {
     const { graph, nodeIndex } = fixture();
 
     expect(
@@ -202,7 +202,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("uses a top cap when the first predecessor has its own predecessor", () => {
+  it("should use a top cap when the first predecessor has its own predecessor", () => {
     const { graph, nodeIndex } = makeGraph(
       [node("select"), node("parent"), node("grandparent")],
       [
@@ -231,7 +231,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("renders multiple grandparents as joined incoming siblings", () => {
+  it("should join incoming siblings when a predecessor has multiple predecessors", () => {
     const { graph, nodeIndex } = makeGraph(
       [
         node("select"),
@@ -270,7 +270,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("can render only successors", () => {
+  it("should omit predecessors when the direction is outgoing", () => {
     const { graph, nodeIndex } = fixture();
 
     expect(
@@ -297,7 +297,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("marks the first successor occurrence when a later successor repeats it", () => {
+  it("should mark a repeated successor when it appears on another branch", () => {
     const { graph, nodeIndex } = makeGraph(
       [node("select"), node("childA"), node("childB"), node("grandchild")],
       [
@@ -330,7 +330,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("marks a true cycle back to an ancestor path", () => {
+  it("should mark a cycle when a branch returns to an ancestor", () => {
     const { graph, nodeIndex } = makeGraph(
       [node("select"), node("child"), node("grandchild")],
       [
@@ -361,7 +361,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("keeps a highlighted outgoing path visible when its first node is also incoming", () => {
+  it("should preserve a highlighted outgoing path when its first node is incoming", () => {
     const { graph, nodeIndex } = makeGraph(
       [node("select"), node("shared"), node("target")],
       [
@@ -398,7 +398,7 @@ describe("NeighborhoodGraph", () => {
     );
   });
 
-  it("keeps a highlighted incoming path visible when its first node was already rendered", () => {
+  it("should preserve a highlighted incoming path when its first node was already rendered", () => {
     const { graph, nodeIndex } = makeGraph(
       [node("select"), node("firstRoot"), node("shared"), node("target")],
       [
@@ -422,6 +422,18 @@ describe("NeighborhoodGraph", () => {
         radius: 2,
         direction: "both",
       }),
-    ).toContain("target");
+    ).toBe(
+      expected(
+        String.stripMargin(`
+         |    ╭─── shared
+         |  ╭─┴─ firstRoot
+         |  │ ╭─── target
+         |  ├─┴─ shared
+         |╭─┴──────╮
+         |│ select │
+         |╰────────╯
+         `),
+      ),
+    );
   });
 });

@@ -13,7 +13,7 @@ const expected = (text: string): string =>
   visible(text).replace(/^\n/u, "").replace(/\n$/u, "");
 
 describe("RouteGraph", () => {
-  it("renders an outgoing route using neighborhood branch glyphs", () => {
+  it("should render a route below the center when the direction is outgoing", () => {
     expect(
       visible(
         Box.renderPlainSync(
@@ -38,7 +38,7 @@ describe("RouteGraph", () => {
     );
   });
 
-  it("renders an incoming route above the center", () => {
+  it("should render a route above the center when the direction is incoming", () => {
     expect(
       visible(
         Box.renderPlainSync(
@@ -63,7 +63,7 @@ describe("RouteGraph", () => {
     );
   });
 
-  it("renders only the center for self", () => {
+  it("should render only the center when the direction is self", () => {
     expect(
       visible(
         Box.renderPlainSync(

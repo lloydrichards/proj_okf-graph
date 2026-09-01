@@ -14,7 +14,7 @@ const document = (blocks: MarkdownDocument["blocks"]): MarkdownDocument => ({
 });
 
 describe("renderMarkdownBox", () => {
-  it("wraps paragraph content instead of clipping it", () => {
+  it("should wrap paragraph content when it exceeds the available width", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(
@@ -37,7 +37,7 @@ describe("renderMarkdownBox", () => {
     expect(rendered).toBe("This is a\nparagraph\nthat wraps\nnicely.");
   });
 
-  it("preserves explicit Markdown line breaks", () => {
+  it("should preserve an explicit Markdown line break when rendering a paragraph", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(
@@ -59,7 +59,7 @@ describe("renderMarkdownBox", () => {
     expect(rendered).toBe("first line\nsecond line");
   });
 
-  it("renders bullet lists with hanging indentation", () => {
+  it("should use hanging indentation when rendering an unordered list", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(
@@ -87,7 +87,7 @@ describe("renderMarkdownBox", () => {
     expect(rendered).toBe("• first item\n  wraps nicely");
   });
 
-  it("renders ordered lists with aligned markers", () => {
+  it("should align markers when rendering an ordered list", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(
@@ -120,7 +120,7 @@ describe("renderMarkdownBox", () => {
     expect(rendered).toBe("1. alpha beta\n   gamma\n2. delta epsilon");
   });
 
-  it("renders blockquotes with a quoted gutter", () => {
+  it("should render a quoted gutter when rendering a blockquote", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(
@@ -145,7 +145,7 @@ describe("renderMarkdownBox", () => {
     expect(rendered).toBe("│ quoted words\n│ here please");
   });
 
-  it("preserves preformatted code blocks and truncates long lines", () => {
+  it("should truncate long code lines when rendering a preformatted block", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(
@@ -164,7 +164,7 @@ describe("renderMarkdownBox", () => {
     expect(rendered).toBe("abcde…\nxyz");
   });
 
-  it("preserves frontmatter as a preformatted block", () => {
+  it("should preserve frontmatter delimiters when rendering a document", () => {
     const rendered = visible(
       Box.renderPlainSync(
         MarkdownBox(

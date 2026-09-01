@@ -33,7 +33,7 @@ const render = (
   );
 
 describe("ConceptSummaryCard", () => {
-  it("renders the shared static header design", () => {
+  it("should render the default concept details when no optional state is set", () => {
     expect(render()).toBe(
       expected(
         String.stripMargin(`
@@ -55,7 +55,7 @@ describe("ConceptSummaryCard", () => {
     );
   });
 
-  it("renders a compact explorer panel with a custom label", () => {
+  it("should preserve concept details when a custom label is rendered in a narrow panel", () => {
     expect(render({ label: "Current", width: 31 })).toBe(
       expected(
         String.stripMargin(`
@@ -79,7 +79,7 @@ describe("ConceptSummaryCard", () => {
     );
   });
 
-  it("renders highlighted navigation context", () => {
+  it("should display navigation context when a highlighted path is selected", () => {
     expect(
       render({
         label: "Highlighted",
