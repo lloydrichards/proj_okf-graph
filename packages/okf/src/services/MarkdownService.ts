@@ -24,6 +24,7 @@ import type {
   Yaml,
 } from "mdast";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import YAML from "yaml";
@@ -48,6 +49,16 @@ export interface ParsedMarkdownDocument extends ParsedMarkdown {
   readonly document: MarkdownDocument;
 }
 
+type GfmTable = {
+  readonly type: "table";
+  readonly align?: ReadonlyArray<"left" | "center" | "right" | null>;
+  readonly children: ReadonlyArray<{
+    readonly children: ReadonlyArray<{
+      readonly children: ReadonlyArray<PhrasingContent>;
+    }>;
+  }>;
+};
+
 /** Recursively extract plain text from an mdast node */
 const extractText = (node: unknown): string => {
   if (node == null || typeof node !== "object") return "";
@@ -59,7 +70,10 @@ const extractText = (node: unknown): string => {
   return "";
 };
 
-const mapInline = (node: PhrasingContent): ReadonlyArray<MarkdownInline> =>
+const mapInline = (
+  node: PhrasingContent,
+  definitions: ReadonlyMap<string, Definition>,
+): ReadonlyArray<MarkdownInline> =>
   Match.value(node).pipe(
     Match.when({ type: "text" }, (n) => [
       MarkdownInline.cases.Text.make({ value: n.value }),
@@ -70,26 +84,38 @@ const mapInline = (node: PhrasingContent): ReadonlyArray<MarkdownInline> =>
     ]),
     Match.when({ type: "emphasis" }, (n) => [
       MarkdownInline.cases.Emphasis.make({
-        children: mapInlines(n.children),
+        children: mapInlines(n.children, definitions),
       }),
     ]),
     Match.when({ type: "strong" }, (n) => [
       MarkdownInline.cases.Strong.make({
-        children: mapInlines(n.children),
+        children: mapInlines(n.children, definitions),
       }),
     ]),
     Match.when({ type: "delete" }, (n) => [
       MarkdownInline.cases.Delete.make({
-        children: mapInlines(n.children),
+        children: mapInlines(n.children, definitions),
       }),
     ]),
     Match.when({ type: "link" }, (n) => [
       MarkdownInline.cases.Link.make({
         url: n.url,
         title: n.title ?? undefined,
-        children: mapInlines(n.children),
+        children: mapInlines(n.children, definitions),
       }),
     ]),
+    Match.when({ type: "linkReference" }, (n) => {
+      const definition = definitions.get(n.identifier);
+      return definition === undefined
+        ? [MarkdownInline.cases.Text.make({ value: extractText(n) })]
+        : [
+            MarkdownInline.cases.Link.make({
+              url: definition.url,
+              title: definition.title ?? undefined,
+              children: mapInlines(n.children, definitions),
+            }),
+          ];
+    }),
     Match.orElse((n) => [
       MarkdownInline.cases.Text.make({ value: extractText(n) }),
     ]),
@@ -97,12 +123,20 @@ const mapInline = (node: PhrasingContent): ReadonlyArray<MarkdownInline> =>
 
 const mapInlines = (
   nodes: ReadonlyArray<PhrasingContent>,
-): ReadonlyArray<MarkdownInline> => Arr.flatMap(nodes, mapInline);
+  definitions: ReadonlyMap<string, Definition>,
+): ReadonlyArray<MarkdownInline> =>
+  Arr.flatMap(nodes, (node) => mapInline(node, definitions));
 
-const mapListItem = (node: ListItem): ReadonlyArray<MarkdownBlock> =>
-  Arr.flatMap(node.children, mapBlock);
+const mapListItem = (
+  node: ListItem,
+  definitions: ReadonlyMap<string, Definition>,
+): ReadonlyArray<MarkdownBlock> =>
+  Arr.flatMap(node.children, (child) => mapBlock(child, definitions));
 
-const mapBlock = (node: RootContent): ReadonlyArray<MarkdownBlock> =>
+const mapBlock = (
+  node: RootContent | GfmTable,
+  definitions: ReadonlyMap<string, Definition>,
+): ReadonlyArray<MarkdownBlock> =>
   Match.value(node).pipe(
     Match.when({ type: "yaml" }, (n) => [
       MarkdownBlock.cases.Frontmatter.make({ value: n.value }),
@@ -110,30 +144,40 @@ const mapBlock = (node: RootContent): ReadonlyArray<MarkdownBlock> =>
     Match.when({ type: "heading" }, (n) => [
       MarkdownBlock.cases.Heading.make({
         level: n.depth,
-        children: mapInlines(n.children),
+        children: mapInlines(n.children, definitions),
       }),
     ]),
     Match.when({ type: "paragraph" }, (n) => [
       MarkdownBlock.cases.Paragraph.make({
-        children: mapInlines(n.children),
+        children: mapInlines(n.children, definitions),
       }),
     ]),
     Match.when({ type: "list" }, (n) => [
       MarkdownBlock.cases.List.make({
         ordered: n.ordered ?? false,
         start: n.start ?? undefined,
-        items: Arr.map(n.children, mapListItem),
+        items: Arr.map(n.children, (item) => mapListItem(item, definitions)),
       }),
     ]),
     Match.when({ type: "blockquote" }, (n) => [
       MarkdownBlock.cases.Blockquote.make({
-        children: Arr.flatMap(n.children, mapBlock),
+        children: Arr.flatMap(n.children, (child) =>
+          mapBlock(child, definitions),
+        ),
       }),
     ]),
     Match.when({ type: "code" }, (n) => [
       MarkdownBlock.cases.CodeBlock.make({
         value: n.value,
         language: n.lang ?? undefined,
+      }),
+    ]),
+    Match.when({ type: "table" }, (n) => [
+      MarkdownBlock.cases.Table.make({
+        alignments: (n.align ?? []).map((alignment) => alignment ?? undefined),
+        rows: n.children.map((row) =>
+          row.children.map((cell) => mapInlines(cell.children, definitions)),
+        ),
       }),
     ]),
     Match.when({ type: "thematicBreak" }, () => [
@@ -145,8 +189,11 @@ const mapBlock = (node: RootContent): ReadonlyArray<MarkdownBlock> =>
     Match.orElse(() => []),
   );
 
-const mapDocument = (tree: Root): MarkdownDocument => ({
-  blocks: Arr.flatMap(tree.children, mapBlock),
+const mapDocument = (
+  tree: Root,
+  definitions: ReadonlyMap<string, Definition>,
+): MarkdownDocument => ({
+  blocks: Arr.flatMap(tree.children, (node) => mapBlock(node, definitions)),
 });
 
 /** Recursively collect all link nodes from an AST node list */
@@ -193,6 +240,7 @@ export class MarkdownService extends Context.Service<MarkdownService>()(
     make: Effect.sync(() => {
       const processor = unified()
         .use(remarkParse)
+        .use(remarkGfm)
         .use(remarkFrontmatter, ["yaml"]);
 
       /**
@@ -212,6 +260,14 @@ export class MarkdownService extends Context.Service<MarkdownService>()(
                 reason: error instanceof Error ? error.message : String(error),
               }),
           });
+
+          const definitions = new Map(
+            tree.children.flatMap((node) =>
+              node.type === "definition"
+                ? [[node.identifier, node as Definition] as const]
+                : [],
+            ),
+          );
 
           // Extract frontmatter via Option pipeline
           const yamlNode = Arr.findFirst(
@@ -243,20 +299,13 @@ export class MarkdownService extends Context.Service<MarkdownService>()(
           );
 
           // Collect links via recursive traversal (no mutation)
-          const definitions = new Map(
-            tree.children.flatMap((node) =>
-              node.type === "definition"
-                ? [[node.identifier, node as Definition] as const]
-                : [],
-            ),
-          );
           const links = collectLinks(tree.children, definitions);
 
           return {
             frontmatter,
             body,
             links,
-            document: mapDocument(tree),
+            document: mapDocument(tree, definitions),
           } satisfies ParsedMarkdownDocument;
         });
 

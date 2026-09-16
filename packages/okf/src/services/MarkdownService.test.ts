@@ -58,6 +58,57 @@ describe("MarkdownService", () => {
       }).pipe(Effect.provide(MarkdownService.layer)),
   );
 
+  it.effect("should resolve reference-style links in the document", () =>
+    Effect.gen(function* () {
+      const markdown = yield* MarkdownService;
+      const parsed = yield* markdown.parseDocument(
+        "Read [the guide][guide].\n\n[guide]: concepts/guide.md",
+      );
+
+      expect(parsed.document.blocks[0]).toEqual({
+        _tag: "Paragraph",
+        children: [
+          { _tag: "Text", value: "Read " },
+          {
+            _tag: "Link",
+            url: "concepts/guide.md",
+            title: undefined,
+            children: [{ _tag: "Text", value: "the guide" }],
+          },
+          { _tag: "Text", value: "." },
+        ],
+      });
+    }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
+  it.effect("should parse a GFM table with column alignment", () =>
+    Effect.gen(function* () {
+      const markdown = yield* MarkdownService;
+      const parsed = yield* markdown.parseDocument(
+        "| Profile | Adds | Issues |\n| :--- | :---: | ---: |\n| local | read path | #43 |",
+      );
+
+      expect(parsed.document.blocks).toEqual([
+        {
+          _tag: "Table",
+          alignments: ["left", "center", "right"],
+          rows: [
+            [
+              [{ _tag: "Text", value: "Profile" }],
+              [{ _tag: "Text", value: "Adds" }],
+              [{ _tag: "Text", value: "Issues" }],
+            ],
+            [
+              [{ _tag: "Text", value: "local" }],
+              [{ _tag: "Text", value: "read path" }],
+              [{ _tag: "Text", value: "#43" }],
+            ],
+          ],
+        },
+      ]);
+    }).pipe(Effect.provide(MarkdownService.layer)),
+  );
+
   it.effect("should map list items when parsing a document", () =>
     Effect.gen(function* () {
       const markdown = yield* MarkdownService;
