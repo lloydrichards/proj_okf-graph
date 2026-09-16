@@ -86,6 +86,15 @@ export type MarkdownBlock =
       readonly value: string;
       readonly language?: string | undefined;
     }
+  | {
+      readonly _tag: "Table";
+      readonly alignments: ReadonlyArray<
+        "left" | "center" | "right" | undefined
+      >;
+      readonly rows: ReadonlyArray<
+        ReadonlyArray<ReadonlyArray<MarkdownInline>>
+      >;
+    }
   | { readonly _tag: "Rule" }
   | { readonly _tag: "Html"; readonly value: string };
 
@@ -115,6 +124,15 @@ export const MarkdownBlock = Schema.TaggedUnion({
   CodeBlock: {
     value: Schema.String,
     language: Schema.optional(Schema.String),
+  },
+  Table: {
+    alignments: Schema.Array(
+      Schema.Union([
+        Schema.Literals(["left", "center", "right"]),
+        Schema.Undefined,
+      ]),
+    ),
+    rows: Schema.Array(Schema.Array(Schema.Array(MarkdownInline))),
   },
   Rule: {},
   Html: { value: Schema.String },
