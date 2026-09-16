@@ -1,3 +1,4 @@
+import type { ConceptEdge, ConceptNode } from "@repo/domain/Okf";
 import { OkfService } from "@repo/okf";
 import {
   Array as Arr,
@@ -14,8 +15,11 @@ import {
 import { Command } from "effect/unstable/cli";
 import { Box } from "effect-boxes";
 import { bundlePath, conceptId } from "../args";
-import { NeighborhoodExplorer } from "../component/NeighborhoodExplorer";
-import { ConceptCard } from "../component/ui/ConceptCard";
+import {
+  NeighborhoodExplorer,
+  NeighborhoodExplorerView,
+  type NeighborhoodExplorerOptions,
+} from "../component/NeighborhoodExplorer";
 import { interactive } from "../flags";
 
 class ConceptNotFound extends Data.TaggedError("ConceptNotFound")<{
@@ -33,6 +37,7 @@ export const concept = Command.make(
       const okf = yield* OkfService;
       const terminal = yield* Terminal.Terminal;
       const terminalWidth = yield* terminal.columns;
+      const terminalHeight = yield* terminal.rows;
       const width = terminalWidth > 20 ? terminalWidth : 120;
 
       const { bundle, graph } = yield* okf.make(bundlePath);
@@ -46,22 +51,31 @@ export const concept = Command.make(
         return yield* new ConceptNotFound({ conceptId });
       }
       let selectedConcept = concept.value;
-      if (interactive) {
-        const nodeIndex = graph.nodeIndex.get(selectedConcept.id);
-        const selectedNodeIndex = yield* NeighborhoodExplorer({
-          graph: graph.graph,
-          nodeIndex: nodeIndex ?? 0,
-          radius: 2,
-          nodeLabel: (node) => node.title ?? node.id,
-          nodeSummary: (node) => ({
+      const conceptsById = new Map(
+        bundle.concepts.map((concept) => [concept.id, concept]),
+      );
+      const explorerOptions: NeighborhoodExplorerOptions<
+        ConceptNode,
+        ConceptEdge
+      > = {
+        graph: graph.graph,
+        nodeIndex: graph.nodeIndex.get(selectedConcept.id) ?? 0,
+        radius: 2,
+        nodeLabel: (node) => node.title ?? node.id,
+        nodeView: (node) => {
+          const concept = conceptsById.get(node.id);
+          return {
             title: node.title ?? node.id,
             reference: node.path,
             type: node.type,
             description: node.description,
             tags: node.tags,
-            resource: node.resource,
-          }),
-        });
+            document: concept?.document ?? { blocks: [] },
+          };
+        },
+      };
+      if (interactive) {
+        const selectedNodeIndex = yield* NeighborhoodExplorer(explorerOptions);
 
         selectedConcept = pipe(
           Graph.getNode(graph.graph, selectedNodeIndex),
@@ -74,7 +88,22 @@ export const concept = Command.make(
           Option.getOrElse(() => selectedConcept),
         );
       }
-      const card = yield* ConceptCard(selectedConcept, graph, width);
+      const selectedNodeIndex = graph.nodeIndex.get(selectedConcept.id) ?? 0;
+      const card = NeighborhoodExplorerView(
+        explorerOptions,
+        {
+          center: selectedNodeIndex,
+          direction: "self",
+          path: [],
+          cursor: 0,
+          history: [selectedNodeIndex],
+          historyCursor: 0,
+        },
+        false,
+        width,
+        terminalHeight,
+        "static",
+      );
 
       yield* Console.log(yield* Box.renderPretty(card));
     }),
