@@ -1,5 +1,12 @@
 # okf-graph
 
+## 0.2.1
+
+### Patch Changes
+
+- 8d9104a: make NeighborhoodExplorer reader-first with new design and matching static view
+- 9cf1e9b: add formatting for links and tables in markdown
+
 ## 0.2.0
 
 ### Minor Changes
