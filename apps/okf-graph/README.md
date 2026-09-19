@@ -49,6 +49,22 @@ okf-graph --help
 
 Commands accept local directories and GitHub tree URLs like the example above.
 
+## Give an agent the OKF skill
+
+Print the skill's Markdown for an LLM to read directly:
+
+```bash
+npx okf-graph@latest skill read
+```
+
+Install the same skill in the current repository:
+
+```bash
+npx okf-graph@latest skill write
+```
+
+The command writes `.agents/skills/okf/SKILL.md`. Use `--path <directory>` to select another repository. An existing skill is preserved unless you pass `--force`.
+
 ## Learn more
 
 - [okf-graph on npm](https://www.npmjs.com/package/okf-graph)

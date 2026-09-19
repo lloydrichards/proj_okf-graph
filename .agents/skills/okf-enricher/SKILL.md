@@ -48,7 +48,7 @@ tags: [] # <- Secondary target
 
 ### 1. Discover Concepts (Index-First)
 
-Follow okf-reader patterns — efficient traversal, not brute-force:
+Follow the installed `okf` skill's reading procedure:
 
 - Read `index.md` first if present
 - Use it to locate concept files

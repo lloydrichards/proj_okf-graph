@@ -20,7 +20,7 @@ This skill pairs with:
 
 - **okf-builder** - Validate after building a bundle
 - **okf-enricher** - Validate after enrichment
-- **okf-reader** - Use reader patterns for efficient bundle traversal
+- **okf** - Read and manage a bundle in a repository
 
 ## What This Skill Validates
 
@@ -140,7 +140,7 @@ Prefer this shape:
 
 ### 1. Discover the Bundle
 
-Follow **okf-reader** patterns for efficient traversal:
+Follow the **okf** skill's reading procedure for efficient traversal:
 
 **Start at root:**
 
@@ -378,7 +378,7 @@ bun start -- concept <bundle-path> <concept-id>
 
 **Be efficient:**
 
-- Use okf-reader patterns (index-first, frontmatter-only)
+- Use the okf skill's reading procedure (index-first, frontmatter-only)
 - Batch checks when possible
 - Use Grep for bundle-wide searches
 

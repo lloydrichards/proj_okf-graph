@@ -10,6 +10,7 @@ import { bundle } from "./commands/bundle";
 import { concept } from "./commands/concept";
 import { evaluate } from "./commands/eval";
 import { graph, GraphConceptNotFound } from "./commands/graph";
+import { skill } from "./commands/skill";
 import { validate, ValidateCommandFailed } from "./commands/validate";
 import { DevToolsLive } from "./observability/DevTools";
 
@@ -21,6 +22,7 @@ const AllCommands = Command.withSubcommands([
   graph,
   validate,
   evaluate,
+  skill,
 ]);
 
 const RuntimeLayers = Layer.mergeAll(
