@@ -1,0 +1,29 @@
+{
+  "skill_name": "okf",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I refactored the bundle's source package without changing behavior or ownership. Check whether the repository OKF needs an update and explain your decision without editing files.",
+      "expected_output": "Inspect the affected sources and concepts, then leave the bundle and log unchanged when its durable claims remain accurate.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "A public capability previously described as deferred is now implemented. Plan the smallest OKF maintenance update, including evidence, lifecycle, links, and validation. Do not edit files yet.",
+      "expected_output": "Find concepts citing the changed code, check implemented and deferred claims plus neighbors, update only affected sources and lifecycle metadata, and run the repository's pinned checks.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Add a durable architectural decision to the repository's OKF bundle. First identify whether an existing concept owns it, then explain how you will ground and validate the change. Do not edit files yet.",
+      "expected_output": "Prefer the existing owner or one focused new concept, cite current sources, mark lifecycle honestly, link selectively, follow the repository log convention, and validate.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Use the OKF bundle to explain how a decision relates to an implemented profile. Keep this read-only and show the commands you would use to inspect the path and neighbors.",
+      "expected_output": "Start from the index, use concept IDs and graph path or neighbors, verify relevant sources, and make no edits.",
+      "files": []
+    }
+  ]
+}

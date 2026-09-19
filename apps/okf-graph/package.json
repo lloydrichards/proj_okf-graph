@@ -24,7 +24,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
+    "build": "bun build src/index.ts --outdir=dist --target=bun --minify && mkdir -p dist/skills/okf && cp src/skills/okf/SKILL.md dist/skills/okf/SKILL.md",
     "dev": "bun --watch run src/index.ts",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
