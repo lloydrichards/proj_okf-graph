@@ -1,5 +1,11 @@
 # okf-graph
 
+## 0.3.0
+
+### Minor Changes
+
+- d33b57d: Add skill read and write commands for installing the OKF repository skill.
+
 ## 0.2.1
 
 ### Patch Changes
