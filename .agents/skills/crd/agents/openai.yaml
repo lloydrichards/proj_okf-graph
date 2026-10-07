@@ -1,0 +1,4 @@
+interface:
+  display_name: "CRD for OKF"
+  short_description: "Build and maintain component requirements in OKF"
+  default_prompt: "Use $crd to create or maintain a component requirements document in this OKF bundle."
