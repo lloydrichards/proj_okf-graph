@@ -11,6 +11,14 @@ export type ConceptDocumentPanelOptions = {
   readonly document: MarkdownDocument;
   readonly width: number;
   readonly height?: number | undefined;
+  readonly scrollOffset?: number | undefined;
+  readonly onViewport?:
+    | ((viewport: {
+        offset: number;
+        maxOffset: number;
+        pageSize: number;
+      }) => void)
+    | undefined;
 };
 
 export const ConceptDocumentPanel = (
@@ -51,10 +59,25 @@ export const ConceptDocumentPanel = (
     ],
     Box.left,
   );
+  const pageSize = Math.max(1, (bodyHeight ?? body.rows) - 1);
+  const maxOffset = Math.max(0, body.rows - pageSize);
+  const offset = Math.max(0, Math.min(options.scrollOffset ?? 0, maxOffset));
+  options.onViewport?.({ offset, maxOffset, pageSize });
   const content =
     bodyHeight === undefined
       ? body
-      : body.pipe(Box.maxHeight(bodyHeight), Box.minHeight(bodyHeight));
+      : Box.vcat(
+          [
+            body.pipe(
+              Box.cropHeight(offset, pageSize),
+              Box.minHeight(pageSize),
+            ),
+            Box.text(
+              `${offset + 1}–${Math.min(body.rows, offset + pageSize)} / ${body.rows} · PgUp/PgDn Home/End`,
+            ).pipe(Box.annotate(Ansi.dim)),
+          ],
+          Box.left,
+        );
 
   return content.pipe(
     Box.truncate(innerWidth, Box.left),
