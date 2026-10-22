@@ -25,7 +25,10 @@ export type NeighborhoodExplorerOptions<N, E> = {
   readonly message?: string | undefined;
   readonly nodeLabel: (node: N) => string;
   readonly nodeView?:
-    | ((node: N) => Omit<ConceptDocumentPanelOptions, "width" | "height"> & {
+    | ((node: N) => Omit<
+        ConceptDocumentPanelOptions,
+        "width" | "height" | "scrollOffset" | "onViewport"
+      > & {
         readonly description?: string | undefined;
       })
     | undefined;
@@ -46,6 +49,7 @@ export type NeighborhoodExplorerState = {
   readonly cursor: number;
   readonly history: ReadonlyArray<Graph.NodeIndex>;
   readonly historyCursor: number;
+  readonly readerOffset?: number;
 };
 
 const immediateNeighbors = <N, E>(
@@ -320,8 +324,10 @@ const conceptPanel = <N, E>(
   options: NeighborhoodExplorerOptions<N, E>,
   nodeIndex: Graph.NodeIndex,
   width: number,
-  height: number,
+  height: number | undefined,
   label: string,
+  scrollOffset = 0,
+  onViewport?: ConceptDocumentPanelOptions["onViewport"],
 ): Box.Box<unknown> => {
   const view = pipe(
     Graph.getNode(options.graph, nodeIndex),
@@ -334,12 +340,14 @@ const conceptPanel = <N, E>(
     view,
     Option.match({
       onNone: () =>
-        panel(label, width, height, nodeDetails(options, nodeIndex, [])),
+        panel(label, width, height ?? 12, nodeDetails(options, nodeIndex, [])),
       onSome: (content) =>
         ConceptDocumentPanel({
           ...content,
           width,
           height,
+          scrollOffset,
+          onViewport,
         }),
     }),
   );
@@ -451,6 +459,7 @@ export const NeighborhoodExplorerView = <N, E>(
   terminalWidth: number,
   terminalHeight: number,
   mode: "interactive" | "static" = "interactive",
+  onReaderViewport?: ConceptDocumentPanelOptions["onViewport"],
 ) => {
   const width = Math.max(60, terminalWidth);
   const height = Math.max(12, terminalHeight - 1);
@@ -580,8 +589,10 @@ export const NeighborhoodExplorerView = <N, E>(
                 options,
                 state.center,
                 Math.max(sideMinWidth, panelWidth),
-                panelHeight,
+                isInteractive ? panelHeight : undefined,
                 "Current",
+                state.readerOffset ?? 0,
+                onReaderViewport,
               ),
             2,
           ),
@@ -597,7 +608,15 @@ export const NeighborhoodExplorerView = <N, E>(
         const navigatorHeight = Math.max(6, panelHeight - readerHeight - 1);
         return Box.vsep(
           [
-            conceptPanel(options, state.center, width, readerHeight, "Current"),
+            conceptPanel(
+              options,
+              state.center,
+              width,
+              isInteractive ? readerHeight : undefined,
+              "Current",
+              state.readerOffset ?? 0,
+              onReaderViewport,
+            ),
             navigator(width, navigatorHeight),
           ],
           1,
@@ -605,11 +624,12 @@ export const NeighborhoodExplorerView = <N, E>(
         );
       })();
 
-  return Box.vsep(
+  const layout = Box.vsep(
     isInteractive ? [label, row, status] : [label, row],
     1,
     Box.left,
-  ).pipe(Box.maxHeight(height));
+  );
+  return isInteractive ? layout.pipe(Box.maxHeight(height)) : layout;
 };
 
 const renderLayout = <N, E>(
@@ -635,6 +655,8 @@ export const processNeighborhoodExplorerInput = <N, E>(
   options: NeighborhoodExplorerOptions<N, E>,
   input: Terminal.UserInput,
   state: NeighborhoodExplorerState,
+  terminalWidth = 120,
+  terminalHeight = 24,
 ) => {
   const currentFrontier = frontier(
     options.graph,
@@ -651,6 +673,33 @@ export const processNeighborhoodExplorerInput = <N, E>(
       : (state.cursor + offset + currentFrontier.length) %
         currentFrontier.length;
   const depth = state.path.length + 1;
+
+  let viewport = { offset: 0, maxOffset: 0, pageSize: 1 };
+  if (["pageup", "pagedown", "home", "end"].includes(input.key.name ?? "")) {
+    NeighborhoodExplorerView(
+      options,
+      state,
+      false,
+      terminalWidth,
+      terminalHeight,
+      "interactive",
+      (value) => {
+        viewport = value;
+      },
+    );
+    const readerOffset =
+      input.key.name === "home"
+        ? 0
+        : input.key.name === "end"
+          ? viewport.maxOffset
+          : clamp(
+              viewport.offset +
+                (input.key.name === "pageup" ? -1 : 1) * viewport.pageSize,
+              0,
+              viewport.maxOffset,
+            );
+    return next({ ...state, readerOffset });
+  }
 
   return Match.value(input).pipe(
     Match.when({ key: { name: "up" } }, () =>
@@ -675,6 +724,7 @@ export const processNeighborhoodExplorerInput = <N, E>(
                 next({
                   ...state,
                   center,
+                  readerOffset: 0,
                   direction: "self",
                   path: [],
                   cursor: 0,
@@ -694,6 +744,7 @@ export const processNeighborhoodExplorerInput = <N, E>(
                 next({
                   ...state,
                   center,
+                  readerOffset: 0,
                   direction: "self",
                   path: [],
                   cursor: 0,
@@ -719,6 +770,7 @@ export const processNeighborhoodExplorerInput = <N, E>(
 
             return next({
               center: target.nodeIndex,
+              readerOffset: 0,
               direction: "self",
               path: [],
               cursor: 0,
@@ -787,9 +839,18 @@ export const NeighborhoodExplorer = <N, E>(
         );
       }),
       process: (input, state) =>
-        Effect.sync(() =>
-          processNeighborhoodExplorerInput(options, input, state),
-        ),
+        Effect.gen(function* () {
+          const terminal = yield* Terminal.Terminal;
+          const width = yield* terminal.columns;
+          const height = yield* terminal.rows;
+          return processNeighborhoodExplorerInput(
+            options,
+            input,
+            state,
+            width,
+            height,
+          );
+        }),
       clear: () => Effect.succeed(""),
     },
   );
