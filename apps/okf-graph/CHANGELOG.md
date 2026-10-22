@@ -1,5 +1,11 @@
 # okf-graph
 
+## 0.3.1
+
+### Patch Changes
+
+- 99c5d09: Long concept files are fully accessible in static output and through PageUp/PageDown and Home/End in interactive mode.
+
 ## 0.3.0
 
 ### Minor Changes
