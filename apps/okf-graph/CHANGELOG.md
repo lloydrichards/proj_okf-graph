@@ -1,5 +1,12 @@
 # okf-graph
 
+## 0.3.1
+
+### Patch Changes
+
+- 705da61: Move the CLI to stable Effect 4 and effect-boxes 0.18, and refresh Bun and YAML dependencies.
+- 99c5d09: Long concept files are fully accessible in static output and through PageUp/PageDown and Home/End in interactive mode.
+
 ## 0.3.0
 
 ### Minor Changes
