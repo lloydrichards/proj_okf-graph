@@ -8,7 +8,7 @@ import {
   pipe,
   Terminal,
 } from "effect";
-import { Prompt } from "effect/unstable/cli";
+import { Prompt } from "effect/cli";
 import { Ansi, Box, Cmd, Flex } from "effect-boxes";
 import {
   ConceptDocumentPanel,
@@ -802,7 +802,7 @@ export const NeighborhoodExplorer = <N, E>(
 
   let hasRendered = false;
 
-  return Prompt.custom<NeighborhoodExplorerState, Graph.NodeIndex>(
+  return Prompt.Custom<NeighborhoodExplorerState, Graph.NodeIndex>(
     initialState,
     {
       render: Effect.fnUntraced(function* (state, action) {

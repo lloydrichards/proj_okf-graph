@@ -1,6 +1,6 @@
 import { Context, Data, Effect, Layer, String as Str, Stream } from "effect";
-import { ChildProcess } from "effect/unstable/process";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { ChildProcess } from "effect/process";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
 export class GitCommandError extends Data.TaggedError("GitCommandError")<{
   readonly command: ReadonlyArray<string>;

@@ -3,7 +3,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { MarkdownService, OkfService } from "@repo/okf";
 import { Cause, Console, Effect, Layer, Option, Runtime } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { Ansi, Box } from "effect-boxes";
 import packageJson from "../package.json" with { type: "json" };
 import { bundle } from "./commands/bundle";

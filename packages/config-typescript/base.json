@@ -35,6 +35,7 @@
         "name": "@effect/language-service",
         "barrelImportPackages": ["effect"],
         "includeSuggestionsInTsc": true,
+        "ignoreEffectWarningsInTscExitCode": true,
         "diagnosticSeverity": {
           "cryptoRandomUUIDInEffect": "suggestion",
           "globalDateInEffect": "suggestion",

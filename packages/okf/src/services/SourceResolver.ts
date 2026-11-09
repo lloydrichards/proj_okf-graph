@@ -151,14 +151,14 @@ export class SourceResolverConfig extends Context.Service<SourceResolverConfig>(
   {
     make: Effect.gen(function* () {
       const path = yield* Path.Path;
-      const configuredBaseDir = yield* Config.string(
+      const configuredBaseDir = yield* Config.String(
         "OKF_SOURCE_BASE_DIR",
       ).pipe(Config.option);
       const baseDir = pipe(
         configuredBaseDir,
         Option.getOrElse(() => path.resolve(globalThis.process.cwd())),
       );
-      const configuredCacheRoot = yield* Config.string(
+      const configuredCacheRoot = yield* Config.String(
         "OKF_SOURCE_CACHE_DIR",
       ).pipe(Config.option);
       const cacheRoot = pipe(

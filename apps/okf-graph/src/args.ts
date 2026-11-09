@@ -1,4 +1,4 @@
-import { Argument } from "effect/unstable/cli";
+import { Argument } from "effect/cli";
 
-export const bundlePath = Argument.string("bundlePath");
-export const conceptId = Argument.string("conceptId");
+export const bundlePath = Argument.String("bundlePath");
+export const conceptId = Argument.String("conceptId");

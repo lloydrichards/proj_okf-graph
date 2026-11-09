@@ -234,7 +234,7 @@ export class OkfService extends Context.Service<OkfService>()(
           .pipe(Effect.map(Arr.filter((e) => e.endsWith(".md"))));
 
         // 3. Partition reserved files from concept files
-        const [conceptFiles, reservedFiles] = Arr.partition(mdFiles, (rel) =>
+        const [reservedFiles, conceptFiles] = Arr.partition(mdFiles, (rel) =>
           RESERVED_NAMES.has(path.basename(rel))
             ? Result.succeed(rel)
             : Result.fail(rel),
@@ -249,7 +249,7 @@ export class OkfService extends Context.Service<OkfService>()(
           }),
         );
 
-        const [logEntries, indexEntries] = Arr.partition(
+        const [indexEntries, logEntries] = Arr.partition(
           reservedEntries,
           (entry) =>
             entry.basename === "index.md"
@@ -283,8 +283,8 @@ export class OkfService extends Context.Service<OkfService>()(
             ),
         );
 
-        const [indexIssues, indexFiles] = Arr.partition(indexResults, (r) => r);
-        const [logIssues, logFiles] = Arr.partition(logResults, (r) => r);
+        const [indexFiles, indexIssues] = Arr.partition(indexResults, (r) => r);
+        const [logFiles, logIssues] = Arr.partition(logResults, (r) => r);
 
         // 5. Parse each concept file once. Retain the document structure in the
         // bundle so EvaluationService does not need to reparse Markdown bodies.
@@ -301,11 +301,9 @@ export class OkfService extends Context.Service<OkfService>()(
               }
               // Preserve unknown frontmatter keys per OKF §4.1:
               // "Consumers SHOULD preserve unknown keys when round-tripping"
-              const frontmatter = yield* Schema.decodeUnknownEffect(
+              const decodedFrontmatter = yield* Schema.decodeUnknownEffect(
                 ConceptFrontmatter,
-              )(parsed.frontmatter.value, {
-                onExcessProperty: "preserve",
-              }).pipe(
+              )(parsed.frontmatter.value).pipe(
                 Effect.mapError(
                   (e) => new MarkdownParseError({ reason: String(e) }),
                 ),
@@ -327,7 +325,10 @@ export class OkfService extends Context.Service<OkfService>()(
               return Result.succeed({
                 id: pipe(rel, Str.replace(/\.md$/, "")),
                 path: rel,
-                frontmatter,
+                frontmatter: {
+                  ...parsed.frontmatter.value,
+                  ...decodedFrontmatter,
+                },
                 metadata,
                 metadataIssues,
                 body: parsed.body,
@@ -342,7 +343,7 @@ export class OkfService extends Context.Service<OkfService>()(
           }),
         );
 
-        const [conceptIssues, parsedConcepts] = Arr.partition(
+        const [parsedConcepts, conceptIssues] = Arr.partition(
           parseResults,
           (r) => r,
         );

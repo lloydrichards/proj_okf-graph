@@ -1,5 +1,5 @@
 import { Console, Effect, FileSystem, Option, Path } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 
 const skillName = "okf";
 
@@ -17,14 +17,14 @@ const loadSkill = Effect.gen(function* () {
   );
 });
 
-const target = Flag.string("path").pipe(
+const target = Flag.String("path").pipe(
   Flag.optional,
   Flag.withDescription(
     "Repository directory (defaults to the current directory)",
   ),
 );
 
-const force = Flag.boolean("force").pipe(
+const force = Flag.Boolean("force").pipe(
   Flag.withDefault(false),
   Flag.withDescription("Replace an existing skill file"),
 );
