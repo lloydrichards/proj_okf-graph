@@ -1,6 +1,6 @@
 import { OkfService } from "@repo/okf";
 import { Array, Console, Data, Effect, Runtime } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { bundlePath } from "../args";
 import { json } from "../flags";
 

@@ -25,9 +25,7 @@ const nonEmpty = (value: string | undefined): string | undefined => {
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 };
 
-const tagLine = (
-  tags: ReadonlyArray<string> | undefined,
-): string | undefined =>
+const tagLine = (tags: ReadonlyArray<string> | undefined): string | undefined =>
   tags && tags.length > 0 ? tags.join(" · ") : undefined;
 
 const contextLine = (

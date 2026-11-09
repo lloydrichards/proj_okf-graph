@@ -10,7 +10,7 @@ import {
   pipe,
   Runtime,
 } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { Box, Flex } from "effect-boxes";
 import { bundlePath, conceptId } from "../args";
 import { NeighborhoodGraph } from "../component/ui/NeighborhoodGraph";

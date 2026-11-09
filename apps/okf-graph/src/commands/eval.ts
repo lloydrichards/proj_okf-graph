@@ -9,7 +9,7 @@ import {
   Schema,
   Terminal,
 } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { Box } from "effect-boxes";
 import { bundlePath } from "../args";
 import { EvaluationReportBox } from "../component/ui/EvaluationReport";
