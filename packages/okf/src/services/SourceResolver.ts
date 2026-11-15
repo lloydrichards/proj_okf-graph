@@ -15,6 +15,7 @@ import {
   Schema,
   String as Str,
 } from "effect";
+import { FetchHttpClient, HttpClient } from "effect/http";
 import { resolveGitHubTree } from "./GitHubTree";
 import { GitService } from "./GitService";
 
@@ -186,6 +187,7 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const git = yield* GitService;
+      const http = yield* HttpClient.HttpClient;
       const config = yield* SourceResolverConfig;
 
       const ensureDirectory = Effect.fn("ensureDirectory")(function* (
@@ -303,7 +305,7 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
               url?.hostname === "github.com" &&
               /^\/[^/]+\/[^/]+\/tree\//.test(url.pathname)
             ) {
-              return resolveGitHubTree(source);
+              return resolveGitHubTree(source, http);
             }
             return resolveGit(source);
           }),
@@ -323,6 +325,7 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
   },
 ) {
   static readonly layer = Layer.effect(this, this.make).pipe(
+    Layer.provide(FetchHttpClient.layer),
     Layer.provideMerge(GitService.layer),
     Layer.provideMerge(SourceResolverConfig.layer),
   );
