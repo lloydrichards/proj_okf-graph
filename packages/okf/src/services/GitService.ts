@@ -78,22 +78,6 @@ export class GitService extends Context.Service<GitService>()(
         return yield* run(["rev-parse", "HEAD"], { cwd });
       });
 
-      const branchExists = Effect.fn("GitService.branchExists")(function* (
-        repoUrl: string,
-        ref: string,
-      ) {
-        return yield* run([
-          "ls-remote",
-          "--exit-code",
-          repoUrl,
-          `refs/heads/${ref}`,
-          `refs/tags/${ref}`,
-        ]).pipe(
-          Effect.as(true),
-          Effect.catchTag("GitCommandError", () => Effect.succeed(false)),
-        );
-      });
-
       const refresh = Effect.fn("GitService.refresh")(function* (options: {
         readonly ref: string;
         readonly checkoutPath: string;
@@ -106,7 +90,7 @@ export class GitService extends Context.Service<GitService>()(
         });
       });
 
-      return { branchExists, clone, refresh, revParseHead, run } as const;
+      return { clone, refresh, revParseHead, run } as const;
     }),
   },
 ) {

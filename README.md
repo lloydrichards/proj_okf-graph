@@ -47,7 +47,7 @@ npm install --global okf-graph
 okf-graph --help
 ```
 
-Commands accept local directories and GitHub tree URLs like the example above.
+GitHub tree URLs resolve the ref on each run and load the bundle into memory without creating a local checkout. For private repositories or authenticated API limits, set `GH_TOKEN` or `GITHUB_TOKEN` to a token with repository contents read access. Local directory inputs read the filesystem directly. Git URLs in the form `<repo>#<ref>:<path>` use the existing checkout cache.
 
 ## Give an agent the OKF skill
 

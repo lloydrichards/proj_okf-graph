@@ -15,6 +15,7 @@ import {
   Schema,
   String as Str,
 } from "effect";
+import { resolveGitHubTree } from "./GitHubTree";
 import { GitService } from "./GitService";
 
 export class SourceParseError extends Data.TaggedError("SourceParseError")<{
@@ -178,25 +179,6 @@ const cacheKey = (source: Extract<OkfSourceInput, { readonly _tag: "Git" }>) =>
     .update(`${source.repoUrl}#${source.ref}:${source.subpath}`)
     .digest("base64url");
 
-const gitHubTreeCandidates = (
-  source: Extract<OkfSourceInput, { readonly _tag: "Git" }>,
-) => {
-  const match = /^https:\/\/github\.com\/[^/]+\/[^/]+\/tree\/(.+)$/.exec(
-    source.input,
-  );
-  if (match?.[1] === undefined) return [source];
-
-  const parts = match[1].split("/");
-  return Array.from({ length: parts.length - 1 }, (_, index) => {
-    const splitAt = parts.length - index - 1;
-    return {
-      ...source,
-      ref: parts.slice(0, splitAt).join("/"),
-      subpath: parts.slice(splitAt).join("/"),
-    };
-  });
-};
-
 export class SourceResolver extends Context.Service<SourceResolver>()(
   "@repo/SourceResolver",
   {
@@ -230,14 +212,9 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
       const resolveGit = Effect.fn("resolveGit")(function* (
         source: Extract<OkfSourceInput, { readonly _tag: "Git" }>,
       ) {
-        const candidates = gitHubTreeCandidates(source);
-        const resolvedSource = yield* Effect.findFirst(
-          candidates,
-          (candidate) => git.branchExists(candidate.repoUrl, candidate.ref),
-        ).pipe(Effect.map(Option.getOrElse(() => source)));
         const checkoutPath = path.resolve(
           config.cacheRoot,
-          cacheKey(resolvedSource),
+          cacheKey(source),
           "repo",
         );
         const checkoutExists = yield* fs.exists(checkoutPath);
@@ -246,15 +223,15 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
           yield* fs.makeDirectory(path.dirname(checkoutPath), {
             recursive: true,
           });
-          yield* git.clone({ ...resolvedSource, checkoutPath });
+          yield* git.clone({ ...source, checkoutPath });
         } else {
-          yield* git.refresh({ ref: resolvedSource.ref, checkoutPath });
+          yield* git.refresh({ ref: source.ref, checkoutPath });
         }
 
         const commit = yield* git
           .revParseHead(checkoutPath)
           .pipe(Effect.option);
-        const bundlePath = path.join(checkoutPath, resolvedSource.subpath);
+        const bundlePath = path.join(checkoutPath, source.subpath);
         const resolvedBundlePath = path.resolve(bundlePath);
         const relativeBundlePath = path.relative(
           checkoutPath,
@@ -265,11 +242,11 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
           path.isAbsolute(relativeBundlePath)
         ) {
           return yield* new SourceResolveError({
-            input: resolvedSource.input,
+            input: source.input,
             reason: "Remote bundle path must remain within its checkout",
           });
         }
-        yield* ensureDirectory(resolvedSource.input, resolvedBundlePath);
+        yield* ensureDirectory(source.input, resolvedBundlePath);
         const realCheckoutPath = yield* fs.realPath(checkoutPath);
         const realBundlePath = yield* fs.realPath(resolvedBundlePath);
         const realRelativeBundlePath = path.relative(
@@ -281,15 +258,15 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
           path.isAbsolute(realRelativeBundlePath)
         ) {
           return yield* new SourceResolveError({
-            input: resolvedSource.input,
+            input: source.input,
             reason: "Remote bundle path must remain within its checkout",
           });
         }
 
         return yield* Schema.decodeEffect(ResolvedOkfSource)({
-          input: resolvedSource.input,
+          input: source.input,
           bundlePath: realBundlePath,
-          source: resolvedSource,
+          source,
           checkoutPath,
           ...(Option.isSome(commit) ? { commit: commit.value } : {}),
         });
@@ -320,7 +297,16 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
               });
             }),
           ),
-          Match.tag("Git", resolveGit),
+          Match.tag("Git", (source) => {
+            const url = URL.parse(source.input);
+            if (
+              url?.hostname === "github.com" &&
+              /^\/[^/]+\/[^/]+\/tree\//.test(url.pathname)
+            ) {
+              return resolveGitHubTree(source);
+            }
+            return resolveGit(source);
+          }),
           Match.exhaustive,
         );
       });

@@ -90,7 +90,7 @@ export class OkfService extends Context.Service<OkfService>()(
   "@repo/OkfService",
   {
     make: Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
+      const hostFs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const md = yield* MarkdownService;
       const sourceResolver = yield* SourceResolver;
@@ -196,6 +196,8 @@ export class OkfService extends Context.Service<OkfService>()(
 
       const loadBundle = Effect.fn("loadBundle")(function* (
         bundlePath: string,
+        fs: FileSystem.FileSystem,
+        displayRoot: string,
       ) {
         // 1. Verify path exists and is a directory
         const pathNorm = path.normalize(bundlePath);
@@ -375,7 +377,7 @@ export class OkfService extends Context.Service<OkfService>()(
         );
 
         return {
-          root: bundlePath,
+          root: displayRoot,
           concepts,
           indexFiles,
           logFiles,
@@ -394,7 +396,11 @@ export class OkfService extends Context.Service<OkfService>()(
               () => new BundleNotFound({ path: bundlePath }),
             ),
           );
-        const bundle = yield* loadBundle(source.bundlePath).pipe(
+        const bundle = yield* loadBundle(
+          source.bundlePath,
+          "fileSystem" in source ? source.fileSystem : hostFs,
+          "displayRoot" in source ? source.displayRoot : source.bundlePath,
+        ).pipe(
           Effect.catchTag(
             "PlatformError",
             () => new BundleNotFound({ path: bundlePath }),
