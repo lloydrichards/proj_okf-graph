@@ -1,3 +1,4 @@
+import { GitHubTreeDefault } from "../services/GitHubTreeLive";
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { isStaleAt } from "@repo/domain/Okf";
@@ -7,6 +8,7 @@ import { MarkdownService } from "../services/MarkdownService";
 import { BundleInvalid, OkfService } from "../services/OkfService";
 
 const TestLayer = Layer.mergeAll(OkfService.layer, MarkdownService.layer).pipe(
+  Layer.provide(GitHubTreeDefault),
   Layer.provideMerge(NodeServices.layer),
 );
 

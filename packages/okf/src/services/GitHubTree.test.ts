@@ -1,11 +1,11 @@
+import { GitHubTreeDefault } from "./GitHubTreeLive";
 import { buffer } from "node:stream/consumers";
 import { gzipSync } from "node:zlib";
-import { NodeServices } from "@effect/platform-node";
 import { Deferred, Effect, Fiber } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { pack } from "tar-stream";
 import { expect, it } from "vitest";
-import { OkfService } from "./OkfService";
+import { GitHubTree } from "./GitHubTree";
 
 it("loads each new head of a slash-containing GitHub branch into its own bundle", async () => {
   const url = "https://github.com/example/notes/tree/feature/plants/guides";
@@ -36,18 +36,31 @@ it("loads each new head of a slash-containing GitHub branch into its own bundle"
   };
   await Effect.runPromise(
     Effect.gen(function* () {
-      const okf = yield* OkfService;
-      for (const commit of [first, second]) {
-        head = commit;
-        const { bundle, graph } = yield* okf.make(url);
-        expect([...graph.nodeIndex.keys()]).toEqual([commit]);
-        expect(bundle.root).toBe(
-          "https://github.com/example/notes/tree/" + commit + "/guides",
+      const tree = yield* GitHubTree;
+      const before = yield* tree.open(new URL(url));
+      head = second;
+      const after = yield* tree.open(new URL(url));
+      for (const [snapshot, expected] of [
+        [before, first],
+        [after, second],
+      ] as const) {
+        expect(snapshot.commit).toBe(expected);
+        expect(snapshot.displayRoot).toBe(
+          "https://github.com/example/notes/tree/" + expected + "/guides",
         );
+        expect(
+          (yield* snapshot.fileSystem.readDirectory(
+            snapshot.bundlePath,
+          )).toSorted(),
+        ).toEqual([expected + ".md", "index.md"]);
+        expect(
+          yield* snapshot.fileSystem.readFileString(
+            snapshot.bundlePath + "/" + expected + ".md",
+          ),
+        ).toContain("# Plant");
       }
     }).pipe(
-      Effect.provide(OkfService.layer),
-      Effect.provide(NodeServices.layer),
+      Effect.provide(GitHubTreeDefault),
       Effect.provideService(FetchHttpClient.Fetch, fetchSnapshot),
     ),
   );
@@ -63,15 +76,16 @@ it.each([
     const requests: string[] = [];
     const result = await Effect.runPromise(
       Effect.gen(function* () {
-        const okf = yield* OkfService;
+        const tree = yield* GitHubTree;
         return yield* Effect.flip(
-          okf.make(
-            "https://github.com/example/notes/tree/feature/plants/guides",
+          tree.open(
+            new URL(
+              "https://github.com/example/notes/tree/feature/plants/guides",
+            ),
           ),
         );
       }).pipe(
-        Effect.provide(OkfService.layer),
-        Effect.provide(NodeServices.layer),
+        Effect.provide(GitHubTreeDefault),
         Effect.provideService(FetchHttpClient.Fetch, async (input) => {
           requests.push(String(input));
           return new Response(body, { status });
@@ -86,13 +100,12 @@ it.each([
 it("fails a corrupt gzip archive through the archive error channel", async () => {
   const result = await Effect.runPromise(
     Effect.gen(function* () {
-      const okf = yield* OkfService;
+      const tree = yield* GitHubTree;
       return yield* Effect.flip(
-        okf.make("https://github.com/example/notes/tree/main/guides"),
+        tree.open(new URL("https://github.com/example/notes/tree/main/guides")),
       );
     }).pipe(
-      Effect.provide(OkfService.layer),
-      Effect.provide(NodeServices.layer),
+      Effect.provide(GitHubTreeDefault),
       Effect.provideService(FetchHttpClient.Fetch, async (input) =>
         String(input).includes("/commits/")
           ? Response.json({ sha: "1".repeat(40) })
@@ -111,15 +124,14 @@ it("releases the HTTP request when an archive download is interrupted", async ()
   let signal: AbortSignal | null | undefined;
   await Effect.runPromise(
     Effect.gen(function* () {
-      const okf = yield* OkfService;
+      const tree = yield* GitHubTree;
       const fiber = yield* Effect.forkChild(
-        okf.make("https://github.com/example/notes/tree/main/guides"),
+        tree.open(new URL("https://github.com/example/notes/tree/main/guides")),
       );
       yield* Deferred.await(started);
       yield* Fiber.interrupt(fiber);
     }).pipe(
-      Effect.provide(OkfService.layer),
-      Effect.provide(NodeServices.layer),
+      Effect.provide(GitHubTreeDefault),
       Effect.provideService(FetchHttpClient.Fetch, async (input, init) => {
         if (String(input).includes("/commits/"))
           return Response.json({ sha: "1".repeat(40) });
@@ -135,4 +147,26 @@ it("releases the HTTP request when an archive download is interrupted", async ()
     ),
   );
   expect(signal?.aborted).toBe(true);
+});
+
+it("reports a missing bundle directory when the archive contains only other paths", async () => {
+  const archive = pack();
+  archive.entry({ name: "repo/elsewhere/index.md" }, "# Elsewhere");
+  archive.finalize();
+  const bytes = new Uint8Array(gzipSync(await buffer(archive)));
+  const url = new URL("https://github.com/example/notes/tree/main/guides");
+  const error = await Effect.runPromise(
+    Effect.gen(function* () {
+      const tree = yield* GitHubTree;
+      return yield* Effect.flip(tree.open(url));
+    }).pipe(
+      Effect.provide(GitHubTreeDefault),
+      Effect.provideService(FetchHttpClient.Fetch, async (input) =>
+        String(input).includes("/commits/")
+          ? Response.json({ sha: "1".repeat(40) })
+          : new Response(bytes),
+      ),
+    ),
+  );
+  expect(error).toMatchObject({ _tag: "BundleNotFound", path: url.href });
 });

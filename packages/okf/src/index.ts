@@ -1,5 +1,12 @@
 export * from "./services/EvaluationService";
-export { GitHubTreeError } from "./services/GitHubTree";
+export {
+  GitHubTree,
+  GitHubTreeError,
+  type GitHubTreeShape,
+  type GitHubTreeSnapshot,
+} from "./services/GitHubTree";
+export type { BundleDirectory } from "./services/BundleDirectory";
+export { GitHubTreeLive, GitHubTreeDefault } from "./services/GitHubTreeLive";
 export { GitCommandError } from "./services/GitService";
 export * from "./services/MarkdownService";
 export * from "./services/OkfService";
