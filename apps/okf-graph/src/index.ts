@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { MarkdownService, OkfService } from "@repo/okf";
+import { GitHubTreeDefault, MarkdownService, OkfService } from "@repo/okf";
 import { Cause, Console, Effect, Layer, Option, Runtime } from "effect";
 import { Command } from "effect/cli";
 import { Ansi, Box } from "effect-boxes";
@@ -26,7 +26,7 @@ const AllCommands = Command.withSubcommands([
 ]);
 
 const RuntimeLayers = Layer.mergeAll(
-  OkfService.layer,
+  OkfService.layer.pipe(Layer.provide(GitHubTreeDefault)),
   MarkdownService.layer,
 ).pipe(Layer.provideMerge(Layer.mergeAll(BunServices.layer, DevToolsLive)));
 

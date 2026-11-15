@@ -20,7 +20,6 @@ import {
   Data,
   DateTime,
   Effect,
-  FileSystem,
   Layer,
   Option,
   Path,
@@ -36,9 +35,8 @@ import {
 } from "./MarkdownService";
 import { SourceResolver } from "./SourceResolver";
 
-export class BundleNotFound extends Data.TaggedError("BundleNotFound")<{
-  path: string;
-}> {}
+import { type BundleDirectory, BundleNotFound } from "./BundleDirectory";
+export { BundleNotFound } from "./BundleDirectory";
 
 export class BundleInvalid extends Data.TaggedError("BundleInvalid")<{
   path: string;
@@ -90,7 +88,6 @@ export class OkfService extends Context.Service<OkfService>()(
   "@repo/OkfService",
   {
     make: Effect.gen(function* () {
-      const hostFs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const md = yield* MarkdownService;
       const sourceResolver = yield* SourceResolver;
@@ -194,14 +191,13 @@ export class OkfService extends Context.Service<OkfService>()(
         return { path: rel, content } satisfies LogFile;
       });
 
-      const loadBundle = Effect.fn("loadBundle")(function* (
-        bundlePath: string,
-        fs: FileSystem.FileSystem,
-        displayRoot: string,
-      ) {
+      const loadBundle = Effect.fn("loadBundle")(function* ({
+        bundlePath,
+        fileSystem: fs,
+        displayRoot,
+      }: BundleDirectory) {
         // 1. Verify path exists and is a directory
         const pathNorm = path.normalize(bundlePath);
-        yield* fs.exists(pathNorm);
 
         yield* fs
           .stat(pathNorm)
@@ -396,11 +392,7 @@ export class OkfService extends Context.Service<OkfService>()(
               () => new BundleNotFound({ path: bundlePath }),
             ),
           );
-        const bundle = yield* loadBundle(
-          source.bundlePath,
-          "fileSystem" in source ? source.fileSystem : hostFs,
-          "displayRoot" in source ? source.displayRoot : source.bundlePath,
-        ).pipe(
+        const bundle = yield* loadBundle(source).pipe(
           Effect.catchTag(
             "PlatformError",
             () => new BundleNotFound({ path: bundlePath }),

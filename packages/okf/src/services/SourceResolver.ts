@@ -15,8 +15,7 @@ import {
   Schema,
   String as Str,
 } from "effect";
-import { FetchHttpClient, HttpClient } from "effect/http";
-import { resolveGitHubTree } from "./GitHubTree";
+import { GitHubTree, isGitHubTreeUrl } from "./GitHubTree";
 import { GitService } from "./GitService";
 
 export class SourceParseError extends Data.TaggedError("SourceParseError")<{
@@ -43,10 +42,9 @@ export const parseOkfSourceInput = Effect.fn("parseOkfSourceInput")(function* (
     });
   }
 
-  const githubTree = yield* parseGitHubTreeUrl(trimmed);
-  if (Option.isSome(githubTree)) {
-    return githubTree.value;
-  }
+  const url = URL.parse(trimmed);
+  if (url && isGitHubTreeUrl(url))
+    return OkfSourceInput.cases.GitHubTree.make({ input: trimmed, url });
 
   const gitUrl = yield* parseGitUrlFragment(trimmed);
   if (Option.isSome(gitUrl)) {
@@ -65,50 +63,6 @@ export const parseOkfSourceInput = Effect.fn("parseOkfSourceInput")(function* (
     input: trimmed,
     path: trimmed,
   });
-});
-
-const parseGitHubTreeUrl = Effect.fn("parseGitHubTreeUrl")(function* (
-  input: string,
-) {
-  const url = yield* Schema.decodeEffect(Schema.URLFromString)(input).pipe(
-    Effect.option,
-  );
-
-  return yield* pipe(
-    url,
-    Option.filter((url) => url.hostname === "github.com"),
-    Option.match({
-      onNone: () => Effect.succeed(Option.none()),
-      onSome: (url) => {
-        const parts = pipe(
-          url.pathname,
-          Str.split("/"),
-          Arr.filter(Str.isNonEmpty),
-        );
-        const owner = Arr.get(parts, 0);
-        const repo = Option.map(Arr.get(parts, 1), Str.replace(/\.git$/, ""));
-
-        const marker = Arr.get(parts, 2);
-        const ref = Arr.get(parts, 3);
-        const subpath = pipe(parts, Arr.drop(4), Arr.join("/"));
-
-        return Effect.succeed(
-          Option.all({ owner, repo, marker, ref }).pipe(
-            Option.filter(({ marker }) => marker === "tree"),
-            Option.filter(() => Str.isNonEmpty(subpath)),
-            Option.map(({ owner, repo, ref }) =>
-              OkfSourceInput.cases.Git.make({
-                input,
-                ref,
-                subpath,
-                repoUrl: `https://github.com/${owner}/${repo}.git`,
-              }),
-            ),
-          ),
-        );
-      },
-    }),
-  );
 });
 
 const parseGitUrlFragment = Effect.fn("parseGitUrlFragment")((input: string) =>
@@ -187,7 +141,7 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const git = yield* GitService;
-      const http = yield* HttpClient.HttpClient;
+      const github = yield* GitHubTree;
       const config = yield* SourceResolverConfig;
 
       const ensureDirectory = Effect.fn("ensureDirectory")(function* (
@@ -265,13 +219,14 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
           });
         }
 
-        return yield* Schema.decodeEffect(ResolvedOkfSource)({
+        const resolved = yield* Schema.decodeEffect(ResolvedOkfSource)({
           input: source.input,
           bundlePath: realBundlePath,
           source,
           checkoutPath,
           ...(Option.isSome(commit) ? { commit: commit.value } : {}),
         });
+        return { ...resolved, fileSystem: fs, displayRoot: realBundlePath };
       });
 
       const resolveLocalPath = (localPath: string) => {
@@ -292,23 +247,16 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
               const localPath = source.path;
               const bundlePath = resolveLocalPath(localPath);
               yield* ensureDirectory(localPath, bundlePath);
-              return yield* Schema.decodeEffect(ResolvedOkfSource)({
+              const resolved = yield* Schema.decodeEffect(ResolvedOkfSource)({
                 input: localPath,
                 bundlePath,
                 source: { ...source, path: bundlePath },
               });
+              return { ...resolved, fileSystem: fs, displayRoot: bundlePath };
             }),
           ),
-          Match.tag("Git", (source) => {
-            const url = URL.parse(source.input);
-            if (
-              url?.hostname === "github.com" &&
-              /^\/[^/]+\/[^/]+\/tree\//.test(url.pathname)
-            ) {
-              return resolveGitHubTree(source, http);
-            }
-            return resolveGit(source);
-          }),
+          Match.tag("Git", resolveGit),
+          Match.tag("GitHubTree", (source) => github.open(source.url)),
           Match.exhaustive,
         );
       });
@@ -325,7 +273,6 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
   },
 ) {
   static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provide(FetchHttpClient.layer),
     Layer.provideMerge(GitService.layer),
     Layer.provideMerge(SourceResolverConfig.layer),
   );

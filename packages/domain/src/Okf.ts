@@ -523,6 +523,7 @@ export const ValidationResult = Schema.Struct({
 export type ValidationResult = typeof ValidationResult.Type;
 
 export const OkfSourceInput = Schema.TaggedUnion({
+  GitHubTree: { input: Schema.String, url: Schema.URLFromString },
   Local: {
     input: Schema.String,
     path: Schema.String,
