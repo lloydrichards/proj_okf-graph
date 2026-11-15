@@ -53,6 +53,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect-vfs/memory": "0.11.0",
+        "@effect/platform-node-shared": "4.1.4",
         "@repo/domain": "workspace:*",
         "effect": "4.1.4",
         "remark-frontmatter": "^5.0.0",
