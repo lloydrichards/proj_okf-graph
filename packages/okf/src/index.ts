@@ -1,4 +1,5 @@
 export * from "./services/EvaluationService";
+export { GitHubTreeError } from "./services/GitHubTree";
 export { GitCommandError } from "./services/GitService";
 export * from "./services/MarkdownService";
 export * from "./services/OkfService";

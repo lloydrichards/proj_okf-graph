@@ -14,19 +14,22 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "@effect-vfs/memory": "0.11.0",
     "@repo/domain": "workspace:*",
-    "effect": "4.1.2",
+    "effect": "4.1.4",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
+    "tar-stream": "^3.2.2",
     "unified": "^11.0.5",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.1.2",
-    "@effect/vitest": "4.1.2",
+    "@effect/platform-node": "4.1.4",
+    "@effect/vitest": "4.1.4",
     "@repo/config-typescript": "workspace:*",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^26.4.0"
+    "@types/node": "^26.4.0",
+    "@types/tar-stream": "^3.1.4"
   }
 }
