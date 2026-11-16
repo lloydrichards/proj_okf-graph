@@ -4,9 +4,9 @@
     {
       "id": 1,
       "files": ["apps/okf-graph/evals/fixture"],
-      "setup": "Append a Markdown link to ./missing-playbook.md to bundle/worker-guide.md.",
+      "setup": "Append a Markdown link to ./missing-playbook.md to bundle/worker-guide.md. Append a link to ./missing-runbook.md to bundle/index.md.",
       "prompt": "Check bundle/ with the currently published okf-graph CLI and tell me which files need attention before we merge.",
-      "expected_output": "The agent resolves the latest published okf-graph and runs validate against bundle/. It reports the missing playbook link and the actual result, distinguishing warnings from errors. Files remain byte-for-byte unchanged. Registry or tool failure is an incomplete run and must be reported as such."
+      "expected_output": "The agent resolves the latest published okf-graph and runs validate against bundle/. It reports valid with zero errors and two warnings: the missing playbook link in bundle/worker-guide.md and the missing runbook link in bundle/index.md. Use the actual filenames, including exactly one .md suffix for the index. Files remain byte-for-byte unchanged. Registry or tool failure is an incomplete run and must be reported as such."
     },
     {
       "id": 2,
@@ -14,6 +14,12 @@
       "setup": "Warm the package cache against a disposable registry whose latest tag points at an older release. Take that registry offline before starting the agent.",
       "prompt": "Our runner lost access to the package registry. Can you verify this bundle with the latest okf-graph release? Please report what you can establish.",
       "expected_output": "If latest cannot be resolved, the agent reports the failed check. An older local binary, a package cache of unconfirmed freshness, and visual inspection cannot establish this result. Files remain unchanged."
+    },
+    {
+      "id": 3,
+      "files": ["apps/okf-graph/evals/invalid-fixture"],
+      "prompt": "Check bundle/ with the currently published okf-graph CLI and tell me which files need attention before we merge.",
+      "expected_output": "Resolve the latest release and execute it. The completed check exits 1 with valid: false and one concept error in bundle/dispatch.md. Explain that frontmatter type must be a string but is a sequence here. Do not classify a returned invalid verdict as an incomplete run. Leave all files unchanged."
     }
   ]
 }

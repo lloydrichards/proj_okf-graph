@@ -304,3 +304,17 @@ We added the package name to both validation prompts and repeated the previous t
 | Shell calls           |            22 |               68 |            34 |               46 |
 
 Naming the package closed the online accuracy gap observed in the previous round. The dedicated skill still reduced exploration and produced a consistent stopping rule when cached metadata was available but the live tag could not be confirmed. These counts describe six runs per condition on each fixture.
+
+## Validation regressions before merge
+
+We ran all three cases through the repository runner with three fresh guided sessions and three empty-catalog controls per case. Both live-registry reference lookups returned 0.3.1. We checked each report against the command output, exit status, and workspace diff.
+
+| Case                                      | With validation skill                                                                               | No validation skill                                                            |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Concept and index warnings                | 2/3 completed and named both files correctly. One lookup hit a local cache quota before validation. | 3/3 completed and named both files correctly.                                  |
+| Registry outage with a usable stale cache | 3/3 reported the latest-release check incomplete. None ran a validator.                             | 2/3 correctly reported latest unverified. One treated cached 0.2.0 as current. |
+| Completed invalid verdict                 | 3/3 reported the error in `bundle/dispatch.md`: its frontmatter `type` must be a string.            | 3/3 reported the same invalid verdict, file and type error.                    |
+
+The two-warning CLI result was valid with exit 0. The guided reports mapped the graph edge to `bundle/worker-guide.md` and the index edge to `bundle/index.md`. One additional guided run after the local quota failure returned both filenames correctly. It is separate from the scheduled counts. All six invalid-bundle traces showed a completed `valid: false` check with exit 1.
+
+Both outage setup records verified that cached 0.2.0 still executed and validated the fixture after shutdown, while an empty cache saw a refused connection. One guided agent observed a registry connection failure. Two observed a local cache write failure before reaching the registry and reported that limitation. Two controls ran the stale executable: one qualified the result, the other claimed successful latest validation. The third used manual checks only. All 19 sessions, including the additional warning run, left their workspaces unchanged.

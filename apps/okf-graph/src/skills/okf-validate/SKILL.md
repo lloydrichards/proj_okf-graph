@@ -18,6 +18,6 @@ Use the caller's bundle path. If omitted, find the root in the repository docs o
 )
 ```
 
-Use the exit status and JSON to report the bundle, resolved version, command, validity, and issues by severity. An edge ID `a->b` identifies the link in concept `a`; its file is `<bundle-path>/a.md`. Read the affected file if you need to disambiguate a finding. Group repeated findings by reason and count. A valid bundle can have warnings.
+Use the exit status and JSON to report the bundle, resolved version, command, validity, and issues by severity. For a broken link `a->b`, use `<bundle-path>/a.md` when `source` is `graph`. When `source` is `index`, `a` already contains the relative filename (such as `index.md`). For file-level errors, use the reported filename. Read the affected file if you need to disambiguate a finding. Group repeated findings by reason and count. A valid bundle can have warnings.
 
-If lookup or execution fails, report the error and the incomplete check. Leave the bundle, log, dependencies, and lockfiles untouched.
+A JSON verdict of `valid: false` is a completed check even when the CLI exits nonzero. Report the errors. If lookup fails or execution ends without a validity verdict, report the cause and the incomplete check. Leave the bundle, log, dependencies, and lockfiles untouched.
