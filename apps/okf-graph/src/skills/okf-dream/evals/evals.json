@@ -12,6 +12,12 @@
       "files": ["apps/okf-graph/evals/fixture"],
       "prompt": "Review the worker bundle and suggest a cleanup for tomorrow's maintenance window. Leave the actual edit for tomorrow.",
       "expected_output": "The agent names overlapping and unique claims, checks the queue policy and inbound links, flags the unresolved retry limit, and leaves all files unchanged."
+    },
+    {
+      "id": 3,
+      "files": ["apps/okf-graph/evals/dream-fixture"],
+      "prompt": "Tidy bundle/ after the on-call rotation. The shift notes have piled up. Organize what the next engineer needs and tell me what needs a decision. Leave files outside the bundle alone.",
+      "expected_output": "Inspect the diff and report. The pure scratchpad is deleted, and the index and surviving references resolve. The result groups durable knowledge by reader question across the two shifts. Allow any sensible layout. The recovery observation covers P-41, P-44, and P-49 with traceable attribution and no claim of causality or recommendation to restart. The unreplicated P-49 loss survives as a scoped observation. The accepted D-8 limit of two retains its rationale and owner. Current implementation allows four. The reviewer is asked whether that discrepancy is intentional. The pager link to monday.md still reaches useful content, or the report flags the known consumer and its required migration if that ID is removed. Files outside bundle/ stay unchanged. A single structural summary accounts for retired IDs and where their knowledge went or why they were dropped. Routine deletions do not generate individual permission requests. Validate the resulting bundle and repeat the cleanup to check for an empty second diff."
     }
   ]
 }
