@@ -12,6 +12,12 @@
       "files": ["apps/okf-graph/evals/fixture"],
       "prompt": "We renamed a private queue helper. FIFO order and emergency replay behavior are unchanged. Does that rename call for a bundle edit? Please only assess its impact.",
       "expected_output": "The agent checks the existing concepts and evidence. It identifies no durable change caused by the rename and leaves the fixture byte-for-byte unchanged."
+    },
+    {
+      "id": 3,
+      "files": ["apps/okf-graph/evals/writing-fixture"],
+      "prompt": "We finished the archive restore drill. Update our OKF bundle with what the next engineer needs to know from the handover and its follow-up. Keep it useful once this rotation is over.",
+      "expected_output": "Grade the bundle diff, source evidence, tool trace, and final response. Use each of the five gates separately. A full pass requires all five; record missed gates even if validation succeeds.\n\n1. **Posting identity owner.** The existing posting-identity concept carries the accepted L-14 exception. Preserve L-3 for ordinary repeats and separate account namespaces. State that the old period is sealed, the correction targets a different period, and a new correction voucher authorizes reuse of the key as a new posting. Preserve the audit rationale. Do not generalize the exception to archive recovery alone.\n2. **Feed owner.** The activity-feed concept explains that a missing receipt cannot establish a failed posting: delivery can lag a commit, and the reader checks the ledger by account and client key. Do not promise a delivery deadline.\n3. **Durability.** Do not promote the removed sandbox override, the open archive-marker proposal, the 47-second observation, the unconfirmed amber indicator, or personal narration into standing guidance. A brief report distinguishing these from accepted evidence is fine; a narrowly scoped mention of the historical override is acceptable only when necessary to distinguish it from production behavior. No duplicated durable rules on the workflow or a new debrief concept.\n4. **Sources and structure.** Ground each answer in its authoritative source (register and feed contract respectively), retain review owners and valid references; legitimate local crosslinks or summary metadata are acceptable. Leave evidence files intact.\n5. **Verification.** Execute the repository check on the edited bundle, with zero unresolved issues.\n\nAssess ownership and durability independently of checking exact phrasing. Note noisy edits or repairs separately from final rubric compliance.\n"
     }
   ]
 }
