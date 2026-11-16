@@ -51,6 +51,13 @@ By default, `--skill-scope okf-only` restricts Codex's skill catalog to the thre
 
 The default `--discovery native` asks the task without telling the agent to compare the skills. To test discovery, run the same revision twice with `--discovery directory` and `--discovery native`, each with its own output directory. The directory control reproduces the original comparison sentence. Both arms install the same three files and leave skill selection to the agent.
 
+To test a single skill against an unguided agent, specify its case and compare `--skill-scope selected` with `--skill-scope none`. For the harder writing case, run the following from the same checkout.
+
+```bash
+python3 -B apps/okf-graph/evals/trace_trials.py /var/tmp/writing-guided --skill okf --case 3 --skill-scope selected --replicates 3 --jobs 2 --model gpt-6-astra
+python3 -B apps/okf-graph/evals/trace_trials.py /var/tmp/writing-unguided --skill okf --case 3 --skill-scope none --replicates 3 --jobs 2 --model gpt-6-astra
+```
+
 Grade the result against the case's existing `expected_output`. Inspect `workspace/`, `changes.diff`, the final message, and the completed tool events in `trace.jsonl`. Trace evidence of skill use includes consulting the right decision before editing, resolving the latest tag before validation, and checking a known consumer before removing a concept ID. Record partial or failed runs even when the command exits successfully. The rotation repeat and review-only cases are separate behavioral checks.
 
 Compare runs within each skill. `metrics.json` contains model-reported input, cached input and output tokens, completed event counts by type, shell commands with nonzero exits, command output bytes, and wall time. Subtract cached input from input to get uncached input. Count completed command and edit events once each. A shell command may batch several operations, and a nonzero search can mean no matches. The `full_body_outputs` count records shell outputs containing each complete skill body verbatim. Inspect partial, numbered, or split reads in the trace, and distinguish metadata reads from body reads. Read the trace before labeling a step wasted. Token usage is per turn and includes accumulated context across model calls. It cannot assign a token cost to an individual tool or reveal the model's private reasoning.

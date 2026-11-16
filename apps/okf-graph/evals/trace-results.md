@@ -101,3 +101,26 @@ We also repeated the native prompts with an empty catalog and removed the three 
 - **Cleanup.** Both unguided agents produced structurally valid bundles, preserved the pager link and incident evidence, and identified the retry discrepancy. Both also asked the reviewer to assign an investigator for an evidence gap. The guided agents left that uncertainty documented and asked only for the retry-policy decision.
 
 Each task and configuration was sampled twice. Direct body bytes measure text returned by the tool. Turn-level token totals include the full task context, repeated model calls, and the final response. The trace API does not give a token bill for individual skills.
+
+## Harder writing case: durability and ownership
+
+Case 3 gives the agent a restore-drill handover, a decision register, a feed contract, and three plausible concept owners. The restore procedure is unchanged. A durable posting exception and a confirmed receipt interpretation belong in different concepts. The expired sandbox override, pending proposal, observed 47-second delay, and unreproduced console indicator are distractors.
+
+Before running the agents we fixed five gates in [the writing eval](../src/skills/okf/evals/evals.json): posting ownership and all exception conditions, feed ownership and verification advice, durability, source integrity, and a successful post-edit check. Three independent sessions received only the unchanged writing skill from `f20ef41`. Three scored controls had an empty inventory and no skill files in the fixture. All received identical prompts and fixtures with native discovery, gpt-6-astra, and medium reasoning effort. A reviewer graded the shuffled, anonymous diffs and check evidence. A separate review inspected the commands and final answers.
+
+| Condition     | Rep             | Gross input | Uncached input | Output | Shell calls | Edit events | Shell output bytes | Gates passed |
+| ------------- | --------------- | ----------- | -------------- | ------ | ----------- | ----------- | ------------------ | ------------ |
+| Writing skill | 1               | 81522       | 11762          | 1131   | 5           | 1           | 7916               | 5/5          |
+| Writing skill | 2               | 80655       | 5391           | 928    | 6           | 1           | 7358               | 5/5          |
+| Writing skill | 3               | 68844       | 6252           | 875    | 4           | 1           | 7906               | 5/5          |
+| No skills     | 1 (replacement) | 84434       | 6354           | 848    | 4           | 1           | 7627               | 5/5          |
+| No skills     | 2               | 103564      | 6668           | 1234   | 6           | 2           | 7583               | 5/5          |
+| No skills     | 3               | 85006       | 11662          | 1021   | 4           | 2           | 7193               | 5/5          |
+
+Both arms passed 3/3. Every agent put the sealed-period, different-period, new-voucher exception and audit rationale in posting identity. Each put the delayed receipt and account/key ledger lookup in the feed reference. All preserved the ordinary retry rule and its account scope. None promoted a rehearsal setting, an open proposal, or a one-off observation to production policy. One guided agent created a redundant history log. We recorded the extra file separately because the locked rubric allowed logging.
+
+The trace of every scored run returned all eight fixture Markdown files before the first edit. Each guided agent opened the writing skill once and finished in one edit. The controls made five edit calls in total. Two revised wording after already passing validation, then checked again. Every first post-edit check was clean. Guided runs used 23,405 uncached input tokens versus 24,684 (5.2% fewer), and 2,934 output tokens versus 3,103 (5.4% fewer). Shell output was 3.5% larger with the skill.
+
+The first attempted control opened a host Pages writing skill and its writing-quality reference despite its empty catalog. We excluded it on exposure grounds and used a fresh control with the same settings. Its unscored turn consumed 19,371 uncached input and 926 output tokens. The scored controls showed no skill reads. Catalog isolation controls discovery; trace inspection still matters.
+
+The handover directed readers to both authorities and the existing procedure linked both owners. The case therefore tests selecting, verifying, and placing durable information when a source trail exists. It did not establish that the writing skill improves those judgments or reliably reduces cost.

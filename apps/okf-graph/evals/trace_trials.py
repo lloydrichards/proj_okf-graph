@@ -42,19 +42,21 @@ def full_body_outputs(before, transcript):
     return counts
 
 
-def trial(skill, number, target, model, effort, discovery, skill_scope):
+def trial(skill, case, number, target, model, effort, discovery, skill_scope):
     dest = target / f"{skill}-{number}"
     dest.mkdir()
     # Keep the expected skill, grading rubric, and other trials out of the agent's cwd.
     box = Path(tempfile.mkdtemp(prefix="skill-trial-", dir=target.parent))
     work = box / "workspace"
-    cases = json.loads((SKILLS / skill / "evals/evals.json").read_text())["evals"]
-    case = next(c for c in cases if c["id"] == SCENARIOS[skill])
     shutil.copytree(ROOT / case["files"][0], work)
     if skill == "okf-validate":
         with (work / "bundle/worker-guide.md").open("a") as guide:
             guide.write("\nSee the [playbook](./missing-playbook.md).\n")
-    installed_names = () if skill_scope == "none" else SCENARIOS
+    installed_names = SCENARIOS
+    if skill_scope == "selected":
+        installed_names = (skill,)
+    elif skill_scope == "none":
+        installed_names = ()
     for name in installed_names:
         installed = work / ".agents/skills" / name
         installed.mkdir(parents=True)
@@ -133,14 +135,25 @@ def main():
     parser.add_argument("--effort", default="medium")
     parser.add_argument("--discovery", choices=["native", "directory"], default="native",
                         help="native skill selection or the original directory comparison prompt")
-    parser.add_argument("--skill-scope", choices=["okf-only", "none", "host"], default="okf-only",
-                        help="enable only OKF skills, disable all skills, or use the host catalog")
+    parser.add_argument("--skill-scope", choices=["okf-only", "selected", "none", "host"], default="okf-only",
+                        help="enable all OKF skills, the selected skill alone, no skills, or the host catalog")
     parser.add_argument("--replicates", type=int, default=2)
     parser.add_argument("--skill", choices=SCENARIOS, help="run only this scenario")
+    parser.add_argument("--case", type=int, help="case ID for a single --skill")
     parser.add_argument("--jobs", type=int, default=3)
     args = parser.parse_args()
-    if args.skill_scope == "none" and args.discovery == "directory":
-        parser.error("The no-skill control requires native discovery")
+    if args.skill_scope in ("none", "selected") and args.discovery == "directory":
+        parser.error("The directory comparison requires all three OKF skills")
+    if args.case is not None and not args.skill:
+        parser.error("--case requires --skill")
+    cases = {}
+    for skill in ([args.skill] if args.skill else SCENARIOS):
+        case_id = SCENARIOS[skill] if args.case is None else args.case
+        entries = json.loads((SKILLS / skill / "evals/evals.json").read_text())["evals"]
+        case = next((c for c in entries if c["id"] == case_id), None)
+        if case is None or (skill == "okf-validate" and case_id != 1):
+            parser.error(f"Unsupported trace scenario: {skill} case {case_id}")
+        cases[skill] = case
     target = args.output.resolve()
     if target.is_relative_to(ROOT) or args.replicates < 1 or args.jobs < 1:
         parser.error("Use a directory outside the checkout and positive replicate and job counts")
@@ -150,11 +163,12 @@ def main():
     save_json(target / "manifest.json", dict(
         codex=subprocess.check_output(["codex", "--version"], text=True).strip(),
         revision=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+        cases={s: c["id"] for s, c in cases.items()},
         model=args.model, effort=args.effort, discovery=args.discovery, skill_scope=args.skill_scope, skill_sha256={
             s: hashlib.sha256((SKILLS / s / "SKILL.md").read_bytes()).hexdigest() for s in SCENARIOS}))
     with ThreadPoolExecutor(args.jobs) as pool:
-        jobs = [pool.submit(trial, s, n, target, args.model, args.effort, args.discovery, args.skill_scope)
-                for n in range(1, args.replicates + 1) for s in ([args.skill] if args.skill else SCENARIOS)]
+        jobs = [pool.submit(trial, s, case, n, target, args.model, args.effort, args.discovery, args.skill_scope)
+                for n in range(1, args.replicates + 1) for s, case in cases.items()]
         return 0 if all([job.result() for job in jobs]) else 1
 
 

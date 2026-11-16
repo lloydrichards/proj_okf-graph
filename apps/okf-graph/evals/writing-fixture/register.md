@@ -1,0 +1,8 @@
+# Settlement decisions
+
+| Record | State                     | Terms                                                                                                                                                                                                                                                                                                                                            |
+| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| L-3    | Accepted                  | The account and client key identify one posting. A retry returns the existing posting to prevent duplicate movements of funds.                                                                                                                                                                                                                   |
+| L-14   | Accepted after drill R-12 | If an operator has sealed the old ledger period, a correction submitted to a _different_ period may reuse its account and client key **only with a new correction voucher**. It is a new posting. The voucher gives auditors a distinct authorization trail. Other repeats still follow L-3. The source of the batch has no bearing on identity. |
+
+A proposal to replace voucher checks with an archive-batch marker is still open.
