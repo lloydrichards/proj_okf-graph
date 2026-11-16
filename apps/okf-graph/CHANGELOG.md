@@ -1,5 +1,12 @@
 # okf-graph
 
+## 0.4.0
+
+### Minor Changes
+
+- cb2540d: Read or install all three OKF skills with `okf-graph skill read` or `okf-graph skill write`. Pass a name to select one. To retain the previous writing-only behavior, use `skill read okf` or `skill write okf`.
+- 20352dd: GitHub tree URLs now load the current commit into memory without writing a checkout to disk. Graph output identifies the exact commit used for the bundle.
+
 ## 0.3.1
 
 ### Patch Changes
