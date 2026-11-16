@@ -3,15 +3,15 @@ import { Argument, Command, Flag } from "effect/cli";
 
 const skillNames = ["okf", "okf-validate", "okf-dream"] as const;
 const name = Argument.Literals("name", skillNames).pipe(
-  Argument.withDefault("okf"),
-  Argument.withDescription(
-    "Use okf for writing, okf-validate for validation, or okf-dream for consolidation",
-  ),
+  Argument.optional,
+  Argument.withDescription("Select one skill (defaults to all three)"),
 );
 
-const loadSkill = Effect.fn("loadSkill")(function* (
-  skillName: (typeof skillNames)[number],
-) {
+type SkillName = (typeof skillNames)[number];
+const selectedSkills = (name: Option.Option<SkillName>): readonly SkillName[] =>
+  Option.isSome(name) ? [name.value] : skillNames;
+
+const loadSkill = Effect.fn("loadSkill")(function* (skillName: SkillName) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const entryArgument = process.argv[1];
@@ -39,10 +39,14 @@ const force = Flag.Boolean("force").pipe(
 
 const readSkill = Command.make("read", { name }, ({ name }) =>
   Effect.gen(function* () {
-    const markdown = yield* loadSkill(name);
-    yield* Effect.sync(() => process.stdout.write(markdown));
+    const documents = yield* Effect.forEach(selectedSkills(name), loadSkill);
+    yield* Effect.sync(() => process.stdout.write(documents.join("\n")));
   }),
-).pipe(Command.withDescription("Print a bundled skill as Markdown"));
+).pipe(
+  Command.withDescription(
+    "Print all bundled skills or one named skill as Markdown",
+  ),
+);
 
 const writeSkill = Command.make(
   "write",
@@ -60,19 +64,21 @@ const writeSkill = Command.make(
         process.exitCode = 1;
         return;
       }
-      const destination = path.join(
-        repository,
-        ".agents",
-        "skills",
-        name,
-        "SKILL.md",
-      );
+      const skillsDir = path.join(repository, ".agents", "skills");
+      const destinations = selectedSkills(name).map((skillName) => ({
+        skillName,
+        directory: path.join(skillsDir, skillName),
+        file: path.join(skillsDir, skillName, "SKILL.md"),
+      }));
+      const directories = [
+        path.dirname(skillsDir),
+        skillsDir,
+        ...destinations.map(({ directory }) => directory),
+      ];
 
       for (const installPath of [
-        path.join(repository, ".agents"),
-        path.join(repository, ".agents", "skills"),
-        path.dirname(destination),
-        destination,
+        ...directories,
+        ...destinations.map(({ file }) => file),
       ]) {
         if (
           Option.isSome(yield* fs.readLink(installPath).pipe(Effect.option))
@@ -82,23 +88,47 @@ const writeSkill = Command.make(
           return;
         }
       }
-
-      if (!force && (yield* fs.exists(destination))) {
-        yield* Console.error(
-          `Skill already exists: ${destination}. Use --force to replace it.`,
-        );
-        process.exitCode = 1;
-        return;
+      for (const directory of directories) {
+        if (
+          (yield* fs.exists(directory)) &&
+          (yield* fs.stat(directory)).type !== "Directory"
+        ) {
+          yield* Console.error(`Not a directory: ${directory}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
+      for (const { file } of destinations) {
+        if (!(yield* fs.exists(file))) continue;
+        if (!force || (yield* fs.stat(file)).type !== "File") {
+          yield* Console.error(
+            force
+              ? `Not a regular file: ${file}`
+              : `Skill already exists: ${file}. Use --force to replace it.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
       }
 
-      const markdown = yield* loadSkill(name);
-      yield* fs.makeDirectory(path.dirname(destination), { recursive: true });
-      yield* fs.writeFileString(destination, markdown, {
-        flag: force ? "w" : "wx",
-      });
-      yield* Console.log(`Installed OKF skill: ${destination}`);
+      const installs = yield* Effect.forEach(
+        destinations,
+        ({ skillName, directory, file }) =>
+          loadSkill(skillName).pipe(
+            Effect.map((markdown) => ({ directory, file, markdown })),
+          ),
+      );
+      for (const { directory, file, markdown } of installs) {
+        yield* fs.makeDirectory(directory, { recursive: true });
+        yield* fs.writeFileString(file, markdown, { flag: force ? "w" : "wx" });
+        yield* Console.log(`Installed OKF skill: ${file}`);
+      }
     }),
-).pipe(Command.withDescription("Install a bundled skill in a repository"));
+).pipe(
+  Command.withDescription(
+    "Install all bundled skills or one named skill in a repository",
+  ),
+);
 
 export const skill = Command.make("skill").pipe(
   Command.withSubcommands([readSkill, writeSkill]),

@@ -57,14 +57,23 @@ GitHub tree URLs resolve the ref on each run and load the bundle into memory wit
 | `okf-validate` | Check a bundle with the latest published CLI and report findings.                     |
 | `okf-dream`    | Consolidate overlapping concepts and development notes after a period of active work. |
 
-Read a skill before installing it, or write it into a repository for an agent to use.
+To read or install the full set:
+
+```bash
+npx okf-graph@latest skill read
+npx okf-graph@latest skill write --path ./my-repo
+```
+
+To select a single skill, pass its name:
 
 ```bash
 npx okf-graph@latest skill read okf-validate
 npx okf-graph@latest skill write okf-dream --path ./my-repo
 ```
 
-Each skill installs at `.agents/skills/<name>/SKILL.md`. Omit the name to select `okf`. The target defaults to the current directory. Pass `--force` to replace an existing copy of the selected skill.
+Omit the name to read or install all three skills in the order shown above. Bulk read prints the Markdown documents separated by a blank line. Supply a name to select only that skill, for example `skill read okf` for the writing skill.
+
+Each skill installs at `.agents/skills/<name>/SKILL.md` under the current directory or the repository selected by `--path`. If any selected skill file already exists, installation stops before writing. Pass `--force` to replace existing copies of the selected skills.
 
 ## Learn more
 
