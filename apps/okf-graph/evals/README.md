@@ -65,3 +65,15 @@ Grade the result against the case's existing `expected_output`. Inspect `workspa
 Compare runs within each skill. `metrics.json` contains model-reported input, cached input and output tokens, completed event counts by type, shell commands with nonzero exits, command output bytes, and wall time. Subtract cached input from input to get uncached input. Count completed command and edit events once each. A shell command may batch several operations, and a nonzero search can mean no matches. The `full_body_outputs` count records shell outputs containing each complete skill body verbatim. Inspect partial, numbered, or split reads in the trace, and distinguish metadata reads from body reads. Read the trace before labeling a step wasted. Token usage is per turn and includes accumulated context across model calls. It cannot assign a token cost to an individual tool or reveal the model's private reasoning.
 
 The [paired trial results](trace-results.md) include all runs, the observed repairs, and the changes in token use.
+
+### Rerun the validation cases
+
+Case 1 adds broken links to a concept and an index. Check that the report names `bundle/worker-guide.md` and `bundle/index.md` and treats both findings as warnings. Case 2 warms a cache with an older published release, stops its disposable loopback registry, and disables shell networking for the trial. Case 3 validates a concept whose `type` is a YAML sequence. Expect a completed invalid verdict, the filename, and the type error even though the validator exits 1.
+
+From the repository root after building, choose a fresh output directory for each invocation:
+
+```bash
+python3 -B apps/okf-graph/evals/trace_trials.py /var/tmp/okf-outage-guided --skill okf-validate --case 2 --skill-scope selected --replicates 3 --model gpt-6-astra
+```
+
+Use `--skill-scope none` for controls and `--case 1` or `--case 3` for the two live-registry cases. Outage setup needs public npm access, a loopback listener, and enough temporary disk space for a cache per worker. Before starting agents, it records evidence in `outage-setup.json` that the cached tag and executable are stale, offline validation succeeds, and a lookup with an empty cache fails. Compare the final report with the actual command exits and output in `trace.jsonl`. A successful agent session can still give an incorrect verdict.
