@@ -251,3 +251,32 @@ Six fresh sessions tidied the same [messy bundle](dream-fixture) with only the d
 | Shell calls           |                 38 |               33 |                  35 |                34 |
 
 On this fixture, scratch deletion and factual grounding occurred under both conditions. The differences were how completely agents retired the shift structure, which questions they escalated, and whether the same cleanup made more edits a second time.
+
+## Validation with a live registry and a stale cache
+
+Six fresh agents per condition received each of the two [validation cases](../src/skills/okf-validate/evals/evals.json), for 24 sessions. Native discovery exposed only the validation skill or an empty catalog. The model was gpt-6-astra at medium effort. We scored actual commands and validator output separately from the final report. All 24 workspaces matched their starting file snapshots at the end. Three online controls listed host skill directories or filenames during discovery. No host skill body read was observed.
+
+| Outcome                                                            | Validation skill | No skills |
+| ------------------------------------------------------------------ | ---------------: | --------: |
+| Online: resolved the live tag and ran that exact okf-graph release |              5/6 |       0/6 |
+| Online: reported the missing playbook file or link                 |              5/6 |       6/6 |
+| Outage: attempted a fresh-cache okf-graph tag lookup               |              6/6 |       0/6 |
+| Outage: ran the cached 0.2.0 validator                             |              0/6 |       4/6 |
+| Outage: reported latest-release validation unverified              |              6/6 |       6/6 |
+
+**Live registry.** Each online trial began with an empty npm cache and the case's broken link in `bundle/worker-guide.md`. Independent public npm lookups before and after the round both returned 0.3.1. In five guided traces, the fresh lookup, successful package fetch, installed package manifest, exact-version execution, and validator JSON agreed: exit 0, valid bundle, one warning for `worker-guide->missing-playbook`. All five named the affected file and distinguished the warning from an error. The sixth selected a fresh cache under a quota-limited temporary path and reported its write error (errno −122), unresolved version, and incomplete check. We retained that run.
+
+All six controls mentioned the broken link. Three used `@okfit/cli@0.16.6`, one used Open Knowledge CLI 0.13.0, and two reviewed files manually and asked which validator to run. Two of the three okfit runs reported errors under its default profile. The third used a different profile and reported one warning. The fixture and prompt leave the package unnamed, so this case measures package identification as well as resolving and running its latest release.
+
+**Registry unavailable.** We warmed a disposable registry cache with real okf-graph 0.2.0 tagged as latest and stopped the registry before the agents ran. Each received a separate copy of that cache and the unmodified case-2 bundle. Agent shell networking was disabled. Setup probes confirmed that the warmed cache resolved and executed 0.2.0 successfully offline while a fresh lookup against the stopped registry failed. A clean cached verdict was therefore available to both conditions.
+
+Five guided agents reported a registry connection error (EPERM). One reported a temporary-cache write error before it could establish a registry error. All six said they had neither resolved latest nor run its validator. Four controls executed the stale validator and reported its clean result with a freshness caveat. One described 0.2.0 as reported by the registry even though the registry was stopped. The other two limited their findings to local inspection. No agent presented a cached pass as proof of latest-release validity.
+
+| Whole-session totals  | Skill, online | No skills, online | Skill, outage | No skills, outage |
+| --------------------- | ------------: | ----------------: | ------------: | ----------------: |
+| Gross input tokens    |       580,530 |         2,279,965 |       654,386 |         1,144,369 |
+| Uncached input tokens |        57,650 |           181,917 |        54,962 |           110,001 |
+| Output tokens         |         4,538 |             8,347 |         4,281 |             6,708 |
+| Shell calls           |            26 |                62 |            33 |                50 |
+
+On these fixtures the skill identified the intended package online and kept a stale validation result out of the outage reports. Both groups acknowledged the limit of offline verification. The totals include package discovery, manual inspection and alternative validator runs.
