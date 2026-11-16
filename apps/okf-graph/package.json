@@ -24,7 +24,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir=dist --target=bun --minify && mkdir -p dist/skills/okf && cp src/skills/okf/SKILL.md dist/skills/okf/SKILL.md",
+    "build": "bun build src/index.ts --outdir=dist --target=bun --minify && cd src && for skill in skills/*; do mkdir -p \"../dist/$skill\" && cp \"$skill/SKILL.md\" \"../dist/$skill/\" || exit 1; done",
     "dev": "bun --watch run src/index.ts",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",

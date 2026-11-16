@@ -1,0 +1,17 @@
+{
+  "skill_name": "okf-dream",
+  "evals": [
+    {
+      "id": 1,
+      "files": ["apps/okf-graph/evals/fixture"],
+      "prompt": "Do our weekly tidy of bundle/. The worker handover has accumulated notes during development. Clean it up for the next on-call engineer.",
+      "expected_output": "The resulting bundle retains per-tenant FIFO and its rationale, the rejection of a missing tenant ID before enqueue, and the distinction between the two proposed retry limits and an accepted limit. The narrative about coffee and the editor is gone. The guide and index still resolve, the evidence and review_owner survive, and validation completes. Running the same request again adds no changes."
+    },
+    {
+      "id": 2,
+      "files": ["apps/okf-graph/evals/fixture"],
+      "prompt": "Review the worker bundle and suggest a cleanup for tomorrow's maintenance window. Leave the actual edit for tomorrow.",
+      "expected_output": "The agent names overlapping and unique claims, checks the queue policy and inbound links, flags the unresolved retry limit, and leaves all files unchanged."
+    }
+  ]
+}
