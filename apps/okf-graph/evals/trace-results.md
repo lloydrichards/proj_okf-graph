@@ -164,3 +164,39 @@ The first trim made ownership explicit: keep the complete rule where readers loo
 Every session visibly read all five fixture documents before editing, read the writing skill once, and finished with zero validator findings. The fresh original-skill runs preserved the facts but repeated all three eligibility conditions and the new-posting outcome on both pages, missing gates 1 and 3. The previous three original-skill runs kept one owner. All nine trimmed-skill runs passed all five gates. They put the complete rule in the reconciliation reference and linked to it from replay instructions.
 
 We retained the 1,384-byte version. It cuts skill bytes by 44.4% and shell output by 19.0% against the fresh baseline. Output tokens fell 6.5%, gross input rose 2.6%, and uncached input rose 33.8%. Per-run uncached input was 6,153 / 5,592 / 10,118, versus 5,120 / 5,333 / 5,883 for the fresh baseline. The earlier original-skill group used 41,289 uncached tokens, so the apparent saving depends on which baseline is used. The explicit batching variant still made 15 shell calls, including a directory listing before reading the already identified files. This case supports retaining the shorter ownership guidance. It does not establish lower whole-session input cost.
+
+## Twelve alternating pairs on ambiguous ownership
+
+We fixed the sample at twelve pairs before running case 4. Within each pair, two fresh, serial sessions received the same fixture, prompt, built validator, frozen rubric and discovery description. Odd pairs ran the original skill first, even pairs the retained trim first. The only installed skill was the version under test. The 2,487-byte original came from `cdb3803` and the 1,384-byte trim from `af33899`. Both used native skill discovery, Codex CLI 0.169.0, gpt-6-astra and medium reasoning effort. The table below contains only this round.
+
+A reviewer scored each randomly labeled diff, final explanation and validation result without seeing the version or token counts. Both homes were eligible under the rubric. A guide that links to the reference and repeats every eligibility condition and the new-posting outcome still contains a second usable rule. The trace audit separately checked source reads and post-edit validation.
+
+| Pair | Original owner | Trimmed owner | Original uncached | Trimmed uncached | Difference (trimmed − original) |
+| ---: | -------------- | ------------- | ----------------: | ---------------: | ------------------------------: |
+|    1 | Single         | Single        |            12,013 |            9,642 |                          -2,371 |
+|    2 | Duplicated     | Single        |             6,083 |           11,268 |                          +5,185 |
+|    3 | Duplicated     | Single        |             5,150 |            5,996 |                            +846 |
+|    4 | Single         | Single        |            11,007 |           10,664 |                            -343 |
+|    5 | Duplicated     | Single        |             6,152 |            5,038 |                          -1,114 |
+|    6 | Duplicated     | Single        |            10,085 |            5,956 |                          -4,129 |
+|    7 | Duplicated     | Single        |             6,151 |            5,885 |                            -266 |
+|    8 | Duplicated     | Single        |            10,947 |            8,422 |                          -2,525 |
+|    9 | Duplicated     | Single        |            16,331 |           12,610 |                          -3,721 |
+|   10 | Duplicated     | Single        |            12,630 |            8,265 |                          -4,365 |
+|   11 | Duplicated     | Single        |             6,292 |            5,176 |                          -1,116 |
+|   12 | Duplicated     | Single        |             6,016 |           14,007 |                          +7,991 |
+
+The trim kept a single owner in 12/12 runs and the original in 2/12. Both succeeded in pairs 1 and 4. In the other ten pairs, only the trimmed version kept one complete rule. All 24 updated the same two concepts, preserved the contract and sources, and ended with zero validation findings. Each trace showed one complete read of its assigned skill. In original run 3 the visible pre-edit results listed the source and candidate filenames without returning their contents. Its diff independently establishes duplication. The other 23 traces showed all five fixture documents before editing.
+
+| Metric across twelve sessions     |     Original | Retained trim |
+| --------------------------------- | -----------: | ------------: |
+| Gross input tokens                |      937,017 |     1,046,545 |
+| Cached share of gross input       |        88.4% |         90.2% |
+| Uncached input tokens             |      108,857 |       102,929 |
+| Median uncached input per session |      8,188.5 |       8,343.5 |
+| Uncached input range              | 5,150–16,331 |  5,038–14,007 |
+| Output tokens                     |       13,409 |        14,398 |
+| Shell calls                       |           57 |            69 |
+| Edit events                       |           12 |            15 |
+
+The trim used fewer uncached tokens in nine pairs. The median within-pair change was −1,115 tokens and the range was −4,365 to +7,991. The two arm medians are calculated independently, so their difference need not match the median paired change. Across the round the trim used 5.4% less uncached input, 11.7% more gross input, and 7.4% more output. Cache reuse varied between sessions. Three trimmed runs (pairs 2, 3 and 12) added a Markdown link to the external decision record, repaired the resulting broken-link warning, and validated again. All original runs finished with one edit. Ownership was consistent for the trim on this fixture. Token savings varied even with run order balanced.
