@@ -1,13 +1,11 @@
 ---
 name: okf-validate
-description: Check an Open Knowledge Format (OKF) bundle with the latest published okf-graph CLI. Use for validation-only requests, broken-link checks, or a report of errors and warnings after edits.
+description: Run the latest published okf-graph on an OKF bundle and report validation errors and warnings. Use for validation-only requests, including broken-link checks before merge.
 ---
 
 # Validate an OKF bundle
 
-Use the bundle path supplied by the caller. If omitted, locate the bundle root from repository documentation or its index. Run the validator against that root. Bun must be on PATH to execute the CLI.
-
-Resolve npm's `latest` tag on every run. Use an empty temporary cache for the lookup so a registry outage cannot return yesterday's version. The executable can reuse the normal npm cache once the version is known. Substitute the actual bundle path below.
+Use the caller's bundle path. If omitted, find the root in the repository docs or index. With a known root, start with this check. It requires Bun on PATH. A fresh metadata cache prevents an offline run from silently resolving an old npm tag.
 
 ```bash
 (
@@ -20,6 +18,6 @@ Resolve npm's `latest` tag on every run. Use an empty temporary cache for the lo
 )
 ```
 
-Read the exit status and the JSON. Report the bundle, resolved version, command, validity, and findings by severity. Include each affected concept or file and the reason. A valid bundle can still have warnings, including an unresolved link. When findings repeat across many files, group them by reason and give the count.
+Use the exit status and JSON to report the bundle, resolved version, command, validity, and issues by severity. An edge ID `a->b` identifies the link in concept `a`; its file is `<bundle-path>/a.md`. Read the affected file if you need to disambiguate a finding. Group repeated findings by reason and count. A valid bundle can have warnings.
 
-If the package cannot be fetched or the runtime fails, report the error and that validation did not complete. A pinned repository check can answer a separate compatibility question if requested. A validation-only run leaves the bundle, log, dependencies, and lockfiles untouched.
+If lookup or execution fails, report the error and the incomplete check. Leave the bundle, log, dependencies, and lockfiles untouched.
