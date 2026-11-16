@@ -40,12 +40,14 @@ Build the CLI first. From the repository root, run the benchmark against the bas
 
 ```bash
 bun run build
-python3 apps/okf-graph/evals/trace_trials.py /var/tmp/okf-baseline --model gpt-6-astra
+python3 -B apps/okf-graph/evals/trace_trials.py /var/tmp/okf-baseline --model gpt-6-astra
 # Revise the skill instructions after inspecting the baseline traces.
-python3 apps/okf-graph/evals/trace_trials.py /var/tmp/okf-candidate --model gpt-6-astra
+python3 -B apps/okf-graph/evals/trace_trials.py /var/tmp/okf-candidate --model gpt-6-astra
 ```
 
 Each round starts two independent Codex sessions per scenario by default. Use `--replicates` for a larger sample. This benchmark uses writing case 1, validation case 1, and cleanup case 3. It gives each agent a fresh copy of the fixture, the three installed skills, and the user prompt. The writing and cleanup tasks receive a repository check that runs the built CLI. The validation task gets network access and an empty npm cache. The runner needs Codex authentication and disk space for the individual caches. Keep the output outside the checkout. Each session works in a randomly named directory. After the run, the harness saves its workspace under the labeled result directory.
+
+By default, `--skill-scope okf-only` restricts Codex's skill catalog to the three installed OKF files. Before each task the runner inventories the workspace, applies process-local disables, and checks that the enabled paths match those files. Each run records the check in `inventory.json`. The overrides leave the user's installed skills and settings intact. Use `--skill-scope host` to reproduce the earlier unfiltered trials. For the native no-skill control, use `--skill-scope none`. It also omits the OKF files from the fixture because a disabled file can still be opened by path.
 
 The default `--discovery native` asks the task without telling the agent to compare the skills. To test discovery, run the same revision twice with `--discovery directory` and `--discovery native`, each with its own output directory. The directory control reproduces the original comparison sentence. Both arms install the same three files and leave skill selection to the agent.
 

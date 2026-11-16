@@ -54,3 +54,50 @@ All 12 agents opened the intended skill and met the task's one-pass rubric. Both
 Three directory-prompt agents read both full siblings alongside the selected skill. Another skimmed both sibling bodies later. A validator that read only sibling frontmatter counted as zero sibling bodies. The six native-prompt agents read zero sibling bodies. The same descriptions were sufficient to route these scenarios. An earlier 12-run pilot used paths containing the expected skill name and is excluded from the table. In that pilot, two native cleanup agents consulted the writing skill later during execution.
 
 Across six tasks per arm, native discovery used 675,071 total input tokens versus 695,679 (down 3.0%), 82,303 uncached input versus 75,775 (up 8.6%), and 5,815 output tokens versus 5,882 (down 1.1%). Tool events fell from 37 to 35. Shell output rose from 95,234 to 120,576 bytes. Four native agents opened an additional host technical-writing guide, compared with one control agent. Small samples, extra host reads and variable cache hits limit the interpretation of token totals. Removing the comparison instruction eliminated unnecessary OKF body reads in the scored sample.
+
+## OKF skills in isolation
+
+We repeated both discovery arms from commit `6cc876b` with the same model, medium effort, worker count, fixture, prompt bytes, and skill file hashes. Each of 12 preflights found three enabled repository skills and disabled the other 24 catalog entries. A separate prompt inspection showed only those three names and descriptions. Trace review found no host skill reads, including the host technical-writing guide. All 12 agents met the existing one-pass rubric. Each read its target body once. Neither arm read a sibling body, even partially.
+
+| Six runs per arm        | Gross input | Uncached input | Output | Tool events | Shell output bytes |
+| ----------------------- | ----------- | -------------- | ------ | ----------- | ------------------ |
+| Host and OKF, directory | 695,679     | 75,775         | 5,882  | 37          | 95,234             |
+| Host and OKF, native    | 675,071     | 82,303         | 5,815  | 35          | 120,576            |
+| OKF only, directory     | 492,273     | 53,745         | 5,415  | 30          | 31,636             |
+| OKF only, native        | 504,684     | 54,124         | 5,561  | 32          | 34,316             |
+
+Within the isolated sample, native discovery used 0.7% more uncached input than the directory prompt. Against the earlier host-enabled native arm, the isolated native arm used 34.2% less uncached input and returned 71.5% fewer shell-output bytes. Those differences include sampling and cache variation across rounds. The direct instruction payload for one full body was 2,226 UTF-8 bytes for writing, 1,073 for validation, and 2,529 for cleanup, excluding frontmatter and surrounding shell output.
+
+| Skill        | Prompt    | Rep | Input  | Uncached input | Output | Tool events |
+| ------------ | --------- | --- | ------ | -------------- | ------ | ----------- |
+| okf          | directory | 1   | 67711  | 11135          | 533    | 5           |
+| okf          | directory | 2   | 67608  | 5656           | 469    | 5           |
+| okf          | native    | 1   | 67702  | 5750           | 536    | 5           |
+| okf          | native    | 2   | 67662  | 5710           | 446    | 5           |
+| okf-validate | directory | 1   | 79028  | 4660           | 597    | 3           |
+| okf-validate | directory | 2   | 102164 | 11412          | 800    | 5           |
+| okf-validate | native    | 1   | 95500  | 12428          | 718    | 4           |
+| okf-validate | native    | 2   | 102015 | 10623          | 746    | 5           |
+| okf-dream    | directory | 1   | 87727  | 13743          | 1504   | 6           |
+| okf-dream    | directory | 2   | 88035  | 7139           | 1512   | 6           |
+| okf-dream    | native    | 1   | 83030  | 12118          | 1464   | 6           |
+| okf-dream    | native    | 2   | 88775  | 7495           | 1651   | 7           |
+
+### What changes when there is no skill?
+
+We also repeated the native prompts with an empty catalog and removed the three files from each fixture. The first attempt at this control disabled discovery but left the files on disk. Two agents opened them directly, so we stopped that attempt and excluded it.
+
+| Task without skills | Rep | Uncached input | Output      | Outcome                                        |
+| ------------------- | --- | -------------- | ----------- | ---------------------------------------------- |
+| okf                 | 1   | 4399           | 508         | Passed                                         |
+| okf                 | 2   | 5509           | 542         | Passed                                         |
+| okf-dream           | 1   | 9039           | 1945        | Partial, extra reviewer decision               |
+| okf-dream           | 2   | 7707           | 1889        | Partial, extra reviewer decision               |
+| okf-validate        | 1   | Unavailable    | Unavailable | Stopped after selecting an unrelated CLI       |
+| okf-validate        | 2   | 13029          | 1187        | Asked which CLI to use, reported link manually |
+
+- **Writing.** All four native writers, with or without the skill, updated the existing decision correctly and passed validation. With the skill, mean uncached input rose from 4,954 to 5,730 tokens (+776) and mean output fell from 525 to 491 tokens. This measures the whole task under each condition.
+- **Validation.** The fixture does not identify the package in the prompt. Both unguided agents found the broken link manually, but neither validated with the published OKF CLI. We stopped one after it attempted to install an unrelated CLI. Its turn did not emit token usage. Both guided agents resolved and ran `okf-graph@0.3.1` and reported the warning. Comparing cost per successful validation would require a successful unguided run.
+- **Cleanup.** Both unguided agents produced structurally valid bundles, preserved the pager link and incident evidence, and identified the retry discrepancy. Both also asked the reviewer to assign an investigator for an evidence gap. The guided agents left that uncertainty documented and asked only for the retry-policy decision.
+
+Each task and configuration was sampled twice. Direct body bytes measure text returned by the tool. Turn-level token totals include the full task context, repeated model calls, and the final response. The trace API does not give a token bill for individual skills.
