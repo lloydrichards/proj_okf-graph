@@ -200,3 +200,25 @@ The trim kept a single owner in 12/12 runs and the original in 2/12. Both succee
 | Edit events                       |           12 |            15 |
 
 The trim used fewer uncached tokens in nine pairs. The median within-pair change was −1,115 tokens and the range was −4,365 to +7,991. The two arm medians are calculated independently, so their difference need not match the median paired change. Across the round the trim used 5.4% less uncached input, 11.7% more gross input, and 7.4% more output. Cache reuse varied between sessions. Three trimmed runs (pairs 2, 3 and 12) added a Markdown link to the external decision record, repaired the resulting broken-link warning, and validated again. All original runs finished with one edit. Ownership was consistent for the trim on this fixture. Token savings varied even with run order balanced.
+
+## Citing evidence outside the bundle
+
+Three of the twelve trimmed-skill sessions in the alternating study added a Markdown link to the external decision record. Their first validation returned a broken-link warning. Each agent then repaired the link and validated again. We added one sentence to the retained skill:
+
+> For evidence files outside the bundle, keep the path only in `sources` and cite the decision or section in prose.
+
+We ran twelve new serial sessions on case 4 with the same fixture, prompt, rubric, model, effort, and isolated skill catalog. The comparison below uses the previous twelve trimmed-skill sessions as its baseline. A reviewer scored the shuffled, anonymously labeled diffs and reports from both groups. We checked each trace for the first validation findings, any later edits, and the final result.
+
+| Across twelve sessions             | Prior trim | With citation sentence |
+| ---------------------------------- | ---------: | ---------------------: |
+| Kept one authoritative rule        |         12 |                     12 |
+| Clean first post-edit validation   |          9 |                     12 |
+| Repaired an external evidence link |          3 |                      0 |
+| Clean final validation             |         12 |                     12 |
+| Shell calls                        |         69 |                     56 |
+| Edit events                        |         15 |                     12 |
+| Gross input tokens                 |  1,046,545 |                884,319 |
+| Uncached input tokens              |    102,929 |                 96,351 |
+| Output tokens                      |     14,398 |                 12,645 |
+
+Each revised-skill trace shows the agent reading the skill and all five fixture documents before editing. Each made one edit covering both concepts and ran one clean check. The reconciliation reference kept the full eligibility rule. The rebuild guide linked to that reference and gave the local replay action. The external decision record remained in the existing source metadata. These twelve runs avoided the observed repair on this case. The groups ran at different times, so the token totals alone cannot attribute savings to the added sentence.
