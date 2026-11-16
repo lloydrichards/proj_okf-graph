@@ -27,3 +27,30 @@ Two fresh gpt-6-astra sessions (medium effort, Codex CLI 0.169.0) ran each scena
 - In round 2 both cleanup agents kept the existing pager address pointing to a replacement concept. Both preserved the unreproduced loss and the limits of the restart evidence, separated the accepted limit from the observed implementation, and asked only about the policy discrepancy. Both passed their first post-edit check. Against baseline, shell and edit events fell from 17 to 14 and generated tokens fell 21%. Uncached input rose 0.9%, and shell output grew 10%. One run loaded an additional host writing guide.
 
 These comparisons cover one successful scenario per skill, with two observations per condition. They do not establish production cost savings. Prompt caching, sibling skill reads, ambient host guidance, command batching, and agent sampling affect the totals. Idempotence and registry-outage handling have separate behavioral trials. See the [runner and grading instructions](README.md#compare-fresh-agent-traces).
+
+## Discovery prompt comparison
+
+The original runner asked each agent to “Choose among the three installed skills under .agents/skills using their descriptions and follow the applicable one.” Some agents printed every file to make that comparison. In the earlier trace study all four writers printed all three bodies. Codex's skill inventory also listed all three as enabled repository skills in a standalone trial workspace.
+
+We installed the exact same skills from `c43caf9` for both arms. The directory arm kept the comparison sentence. The native arm omitted it. The task, fixtures, model, effort, tools and success criteria stayed the same. We used opaque workspace and temporary-directory names in both arms to remove the expected skill name from the agent's path. Run each arm with `--jobs 2`. There were two fresh sessions per task per arm.
+
+| Task         | Rep | Prompt    | Full sibling bodies | Partial only | Input  | Uncached input | Output | Tool events |
+| ------------ | --- | --------- | ------------------- | ------------ | ------ | -------------- | ------ | ----------- |
+| okf          | 1   | directory | 2                   | 0            | 84043  | 10443          | 546    | 5           |
+| okf          | 1   | native    | 0                   | 0            | 105486 | 11534          | 611    | 6           |
+| okf          | 2   | directory | 0                   | 2            | 103902 | 10206          | 662    | 7           |
+| okf          | 2   | native    | 0                   | 0            | 106144 | 19232          | 631    | 7           |
+| okf-validate | 1   | directory | 0                   | 0            | 123614 | 9822           | 802    | 5           |
+| okf-validate | 1   | native    | 0                   | 0            | 116870 | 13830          | 640    | 4           |
+| okf-validate | 2   | directory | 0                   | 0            | 117209 | 8921           | 691    | 5           |
+| okf-validate | 2   | native    | 0                   | 0            | 101414 | 9894           | 653    | 4           |
+| okf-dream    | 1   | directory | 2                   | 0            | 136783 | 24271          | 1670   | 8           |
+| okf-dream    | 1   | native    | 0                   | 0            | 133941 | 14005          | 1649   | 7           |
+| okf-dream    | 2   | directory | 2                   | 0            | 130128 | 12112          | 1511   | 7           |
+| okf-dream    | 2   | native    | 0                   | 0            | 111216 | 13808          | 1631   | 7           |
+
+All 12 agents opened the intended skill and met the task's one-pass rubric. Both writing arms updated the existing Q-12 concept. Both validation arms resolved the live release, ran that version, reported the broken playbook warning, and left the fixture untouched. Both cleanup arms preserved the pager link and incident evidence, deleted the scratchpad, and flagged the retry-policy conflict.
+
+Three directory-prompt agents read both full siblings alongside the selected skill. Another skimmed both sibling bodies later. A validator that read only sibling frontmatter counted as zero sibling bodies. The six native-prompt agents read zero sibling bodies. The same descriptions were sufficient to route these scenarios. An earlier 12-run pilot used paths containing the expected skill name and is excluded from the table. In that pilot, two native cleanup agents consulted the writing skill later during execution.
+
+Across six tasks per arm, native discovery used 675,071 total input tokens versus 695,679 (down 3.0%), 82,303 uncached input versus 75,775 (up 8.6%), and 5,815 output tokens versus 5,882 (down 1.1%). Tool events fell from 37 to 35. Shell output rose from 95,234 to 120,576 bytes. Four native agents opened an additional host technical-writing guide, compared with one control agent. Small samples, extra host reads and variable cache hits limit the interpretation of token totals. Removing the comparison instruction eliminated unnecessary OKF body reads in the scored sample.

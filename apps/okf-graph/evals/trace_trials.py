@@ -11,6 +11,7 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 
 APP = Path(__file__).resolve().parents[1]
@@ -27,10 +28,22 @@ def save_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
-def trial(skill, number, target, model, effort):
+def full_body_outputs(before, transcript):
+    # This is a lower bound: numbered, partial, or split reads need trace review.
+    counts = {}
+    for name in SCENARIOS:
+        entry = Path(".agents/skills") / name / "SKILL.md"
+        body = before[entry].decode().split("\n---\n", 1)[1].strip()
+        counts[name] = sum(body in item.get("aggregated_output", "") for item in transcript)
+    return counts
+
+
+def trial(skill, number, target, model, effort, discovery):
     dest = target / f"{skill}-{number}"
     dest.mkdir()
-    work = dest / "workspace"
+    # Keep the expected skill, grading rubric, and other trials out of the agent's cwd.
+    box = Path(tempfile.mkdtemp(prefix="skill-trial-", dir=target.parent))
+    work = box / "workspace"
     cases = json.loads((SKILLS / skill / "evals/evals.json").read_text())["evals"]
     case = next(c for c in cases if c["id"] == SCENARIOS[skill])
     shutil.copytree(ROOT / case["files"][0], work)
@@ -48,15 +61,17 @@ def trial(skill, number, target, model, effort):
         (work / "check-okf").chmod(0o755)
 
     before = snapshot(work)
-    prompt = ("Work in the current repository. Choose among the three installed skills under "
-              ".agents/skills using their descriptions and follow the applicable one. "
-              "Report what you checked and the outcome. ")
+    prompt = "Work in the current repository. "
+    if discovery == "directory":
+        prompt += ("Choose among the three installed skills under .agents/skills using their "
+                   "descriptions and follow the applicable one. ")
+    prompt += "Report what you checked and the outcome. "
     if skill != "okf-validate":
         prompt += "The repository bundle check is ./check-okf. "
     prompt += case["prompt"]
     (dest / "prompt.txt").write_text(prompt)
     env = os.environ.copy()
-    tmp = dest / "tmp"
+    tmp = box / "tmp"
     tmp.mkdir()
     env.update(TMPDIR=str(tmp), npm_config_cache=str(tmp / "npm"), npm_config_fetch_retries="0")
     args = ["codex", "exec", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check",
@@ -91,9 +106,11 @@ def trial(skill, number, target, model, effort):
                 diff.writelines(difflib.unified_diff(old, new, f"a/{p}", f"b/{p}"))
     results = dict(skill=skill, scenario=case["id"], replicate=number, model=model, effort=effort,
                    elapsed_seconds=seconds, exit_code=proc.returncode, completed_turns=turns,
-                   items=counts, usage=usage, changed_files=changed,
+                   items=counts, usage=usage, changed_files=changed, full_body_outputs=full_body_outputs(before, transcript),
                    failed_commands=sum(i.get("exit_code") not in (None, 0) for i in transcript),
                    command_output_bytes=sum(len(i.get("aggregated_output", "").encode()) for i in transcript))
+    shutil.move(work, dest / "workspace")
+    shutil.rmtree(box)
     save_json(dest / "metrics.json", results)
     print(dest.name, "finished", proc.returncode, "completed turns", turns, flush=True)
     return proc.returncode == 0 and turns > 0
@@ -104,6 +121,8 @@ def main():
     parser.add_argument("output", type=Path, help="new directory outside the repository")
     parser.add_argument("--model", required=True)
     parser.add_argument("--effort", default="medium")
+    parser.add_argument("--discovery", choices=["native", "directory"], default="native",
+                        help="native skill selection or the original directory comparison prompt")
     parser.add_argument("--replicates", type=int, default=2)
     parser.add_argument("--skill", choices=SCENARIOS, help="run only this scenario")
     parser.add_argument("--jobs", type=int, default=3)
@@ -117,10 +136,10 @@ def main():
     save_json(target / "manifest.json", dict(
         codex=subprocess.check_output(["codex", "--version"], text=True).strip(),
         revision=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-        model=args.model, effort=args.effort, skill_sha256={
+        model=args.model, effort=args.effort, discovery=args.discovery, skill_sha256={
             s: hashlib.sha256((SKILLS / s / "SKILL.md").read_bytes()).hexdigest() for s in SCENARIOS}))
     with ThreadPoolExecutor(args.jobs) as pool:
-        jobs = [pool.submit(trial, s, n, target, args.model, args.effort)
+        jobs = [pool.submit(trial, s, n, target, args.model, args.effort, args.discovery)
                 for n in range(1, args.replicates + 1) for s in ([args.skill] if args.skill else SCENARIOS)]
         return 0 if all([job.result() for job in jobs]) else 1
 
