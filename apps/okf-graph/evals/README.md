@@ -33,3 +33,22 @@ Three fresh agents chose `okf-dream` from the bundled skills and used the built 
 - **Reviewer decision.** The agent preserved D-8, its rationale, and its owner. It asked whether dispatch should restore the approved two retries or adopt the four allowed by the code and its test. Its summary accounted for both deleted IDs. All files outside the bundle stayed unchanged.
 
 Fresh agents repeated both cleanup requests. Both resulting directories were byte-for-byte identical to their first-pass outputs. All three cases and both repeats passed bundle validation with zero issues.
+
+## Compare fresh-agent traces
+
+Build the CLI first. From the repository root, run the benchmark against the baseline skills. After changing the skill instructions, repeat the command with a new output directory. Use the same Codex CLI, model, reasoning effort, installed Bun and npm, and worker count in both rounds.
+
+```bash
+bun run build
+python3 apps/okf-graph/evals/trace_trials.py /var/tmp/okf-baseline --model gpt-6-astra
+# Revise the skill instructions after inspecting the baseline traces.
+python3 apps/okf-graph/evals/trace_trials.py /var/tmp/okf-candidate --model gpt-6-astra
+```
+
+Each round starts two independent Codex sessions per scenario by default. Use `--replicates` for a larger sample. This benchmark uses writing case 1, validation case 1, and cleanup case 3. It gives each agent a fresh copy of the fixture, the three installed skills, and the user prompt. The writing and cleanup tasks receive a repository check that runs the built CLI. The validation task gets network access and an empty npm cache. The runner needs Codex authentication and disk space for the individual caches. Keep the output outside the checkout.
+
+Grade the result against the case's existing `expected_output`. Inspect `workspace/`, `changes.diff`, the final message, and the completed tool events in `trace.jsonl`. Trace evidence of skill use includes consulting the right decision before editing, resolving the latest tag before validation, and checking a known consumer before removing a concept ID. Record partial or failed runs even when the command exits successfully. The rotation repeat and review-only cases are separate behavioral checks.
+
+Compare runs within each skill. `metrics.json` contains model-reported input, cached input and output tokens, completed event counts by type, shell commands with nonzero exits, command output bytes, and wall time. Subtract cached input from input to get uncached input. Count completed command and edit events once each. A shell command may batch several operations, and a nonzero search can mean no matches. Read the trace before labeling a step wasted. Token usage is per turn and includes accumulated context across model calls. It cannot assign a token cost to an individual tool or reveal the model's private reasoning.
+
+The [paired trial results](trace-results.md) include all runs, the observed repairs, and the changes in token use.

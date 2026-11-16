@@ -5,23 +5,18 @@ description: Write or update Open Knowledge Format (OKF) concepts when a reposit
 
 # Write durable OKF concepts
 
-Start with the question a future reader will need to answer. For a retry change, that might be "When can a client safely submit the same request twice?" The answer belongs in OKF if readers need the contract, its rationale, or the conditions under which it holds. A transcript of the debugging session and today's test output belong in the task record.
+Identify the question a future reader needs answered. Keep contracts, rationale, conditions, and exceptions. Leave session chatter and transient test output in the task record.
 
-## Find the concept that owns the answer
+Read the named source, the bundle index if present, and the concept that owns the rule. Search further when ownership, evidence, or the impact on another concept is unclear. To inspect related concepts, use `okf-graph graph neighbors <bundle-path> <concept-id> --json`. The ID is the bundle-relative path without `.md`.
 
-Read the bundle's root `index.md` if present and follow links to the relevant area. Search for the terminology and paths of the affected sources. For a changed concept, `okf-graph graph neighbors <bundle-path> <concept-id> --json` shows related concepts worth checking. The ID is the bundle-relative path without `.md`.
+Check the claim against the implementation, test, accepted decision, or primary research that establishes it. If the answer is unchanged, leave the bundle and log alone. If code conflicts with an accepted decision, record the discrepancy. Only a superseding decision establishes a change in policy.
 
-Check each claim against the relevant implementation, test, accepted decision, or primary research. If a refactor leaves the answer intact, leave the concept and log alone. If code conflicts with an accepted decision, describe the discrepancy and its evidence. A change in implementation alone cannot establish that a decision was reversed.
+Extend the existing rule in place. Create a concept with a stable filename when the answer needs its own home. State the claim, scope, and supporting evidence. Distinguish proposals from accepted decisions.
 
-## Write the answer
+- In OKF v0.2, cite evidence in `sources` using a `resource` path relative to the concept. Reuse an existing citation and name the relevant decision or section in prose. Markdown links between concepts create graph edges. Keep references to repository files outside the bundle in `sources`.
+- Start concepts with YAML frontmatter and a nonempty `type`. Follow neighboring concepts for `title`, `description`, and lifecycle fields. Preserve custom metadata, source IDs, and footnotes. Update `generated.at` for a material change if the bundle tracks it. Record verification only for a check that confirmed the claim against its source.
+- Use `index.md` for navigation and `log.md` for bundle history. Follow the local logging convention. Add links where readers need a route to a related concept.
 
-When a source adds an exception or extends a rule, put that change in the concept that already explains the rule. Cite the source there. Give a new concept one purpose and a stable filename. State what a reader can rely on, when it applies, and why a constraint or exception matters. Identify proposals as proposals.
+After editing, run the repository's OKF check or use `npx --yes okf-graph@latest validate "<bundle-path>" --json` with Bun available. Read the findings and report the edited concept, evidence, check result, and unresolved questions.
 
-- Begin each concept with YAML frontmatter and a nonempty `type`. Choose a useful `title` and `description` consistent with neighboring concepts. Reserve `index.md` for navigation and `log.md` for bundle history.
-- Cite the material behind the claim. In OKF v0.2, use `sources` entries with a `resource`. Resolve relative paths from the concept's directory. Preserve existing source IDs and matching footnotes.
-- Preserve custom frontmatter. Follow the bundle's lifecycle and provenance conventions. Update `generated.at` for a meaningful content change when the bundle records it. Add a verification event only for a check that actually confirmed the claim against its source.
-- Link to a related concept where a reader needs the relationship. Explain it in the sentence around the link and use the bundle's link style. Update the section index if readers need a route to the new concept.
-
-Run the repository's OKF check after editing, or run `npx --yes okf-graph@latest validate "<bundle-path>" --json` with Bun available. Read the findings. Structural validation cannot confirm that a cited decision supports the prose. Follow the bundle's log convention for material changes. Report the concept, evidence, and any unresolved question.
-
-For field definitions and version differences, consult the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md).
+For field definitions or version differences, consult the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md).
