@@ -1,57 +1,27 @@
 ---
 name: okf
-description: Keep a repository's Open Knowledge Format (OKF) bundle accurate as code, contracts, decisions, and research change. Use for OKF exploration, creation, maintenance, validation, broken links, or okf-graph.
+description: Write or update Open Knowledge Format (OKF) concepts when a repository decision, contract, or workflow changes. Use to decide what belongs in the bundle, find the existing concept that owns it, and ground the change in sources.
 ---
 
-# Manage a repository OKF bundle
+# Write durable OKF concepts
 
-Find the bundle root and follow the repository's existing OKF conventions. It is often `.okf/`. Current code, tests, specifications, and cited sources ground the bundle's claims. Keep durable knowledge in OKF; leave task notes, copied test output, and facts recoverable from Git elsewhere.
+Start with the question a future reader will need to answer. For a retry change, that might be "When can a client safely submit the same request twice?" The answer belongs in OKF if readers need the contract, its rationale, or the conditions under which it holds. A transcript of the debugging session and today's test output belong in the task record.
 
-## Choose the task
+## Find the concept that owns the answer
 
-- **Explore or answer:** read the root `index.md`, then inspect relevant concepts and graph neighborhoods. Do not edit for a read-only request.
-- **Validate or audit:** run the repository's checks, inspect findings, and report them. Fix only when asked.
-- **Create:** find the concept that should own the new knowledge. Add a focused concept only when none exists, connect it selectively, and validate.
-- **Maintain after code changes:** use the change-driven path below. An implementation edit does not by itself require an OKF edit.
+Read the bundle's root `index.md` if present and follow links to the relevant area. Search for the terminology and paths of the affected sources. For a changed concept, `okf-graph graph neighbors <bundle-path> <concept-id> --json` shows related concepts worth checking. The ID is the bundle-relative path without `.md`.
 
-## Find and read concepts
+Check each claim against the relevant implementation, test, accepted decision, or primary research. If a refactor leaves the answer intact, leave the concept and log alone. If code conflicts with an accepted decision, describe the discrepancy and its evidence. A change in implementation alone cannot establish that a decision was reversed.
 
-1. Start with the bundle's root `index.md` if present. Follow indexes to the relevant section instead of reading every file.
-2. Search filenames, frontmatter, and cited source paths to narrow the set of concepts.
-3. Use `okf-graph bundle index <bundle-path>`, `okf-graph concept <bundle-path> <concept-id>`, `okf-graph graph neighbors <bundle-path> <concept-id> --json`, or `okf-graph graph path <bundle-path> <from-id> <to-id> --json` as needed.
-4. Check important or possibly stale claims against their current sources. A concept ID is its bundle-relative path without `.md`.
+## Write the answer
 
-Use the repository's pinned CLI version or check script when it has one. Confirm availability before suggesting a command as a completed check.
+When a source adds an exception or extends a rule, put that change in the concept that already explains the rule. Cite the source there. Give a new concept one purpose and a stable filename. State what a reader can rely on, when it applies, and why a constraint or exception matters. Identify proposals as proposals.
 
-## Maintain knowledge after a repository change
+- Begin each concept with YAML frontmatter and a nonempty `type`. Choose a useful `title` and `description` consistent with neighboring concepts. Reserve `index.md` for navigation and `log.md` for bundle history.
+- Cite the material behind the claim. In OKF v0.2, use `sources` entries with a `resource`. Resolve relative paths from the concept's directory. Preserve existing source IDs and matching footnotes.
+- Preserve custom frontmatter. Follow the bundle's lifecycle and provenance conventions. Update `generated.at` for a meaningful content change when the bundle records it. Add a verification event only for a check that actually confirmed the claim against its source.
+- Link to a related concept where a reader needs the relationship. Explain it in the sentence around the link and use the bundle's link style. Update the section index if readers need a route to the new concept.
 
-1. Inspect the changed code, tests, and documentation. Name the durable claim, contract, decision, or capability that changed.
-2. Search the bundle for concepts that cite the affected repository paths, then inspect their immediate graph neighbors:
+Run the repository's OKF check after editing, or run `npx --yes okf-graph@latest validate "<bundle-path>" --json` with Bun available. Read the findings. Structural validation cannot confirm that a cited decision supports the prose. Follow the bundle's log convention for material changes. Report the concept, evidence, and any unresolved question.
 
-   ```bash
-   rg -nF '<repository-relative-source-path>' <bundle-path>
-   okf-graph graph neighbors <bundle-path> <concept-id> --json
-   ```
-
-3. If existing claims remain accurate, leave the bundle alone. Formatting, file churn, and behavior-preserving refactors normally need no knowledge or log change.
-4. Otherwise update the smallest set of owning concepts. Correct their claims, sources, lifecycle status, and relationships. Check related profiles or contracts when implemented or deferred behavior changes.
-5. Update a concept's `generated.at` only when its meaning changes. Preserve other metadata and unknown frontmatter fields. If the bundle has a `log.md` convention, add one concise entry for the material knowledge change; skip it for validation-only runs and link-only repairs unless the repository requires one.
-6. Run the repository's OKF check script if present. Otherwise validate the bundle and inspect changed concepts and their neighbors. Report unresolved findings.
-
-If implementation contradicts an accepted decision, report the conflict instead of silently rewriting the decision to match the code.
-
-## Author concepts and links
-
-- Give each concept one coherent purpose. Prefer revising an existing concept over creating a near-duplicate.
-- Start concept files with YAML frontmatter. `type` is required. Add a useful `title` and `description`. Follow the bundle's conventions for `status`, `sources`, `generated`, and optional `timestamp`.
-- Ground claims in current sources. Resolve relative source paths from the concept file's directory. Do not claim `verified` unless a human or deterministic check performed that verification.
-- Use `status: draft` for unsettled research or proposals when the bundle uses lifecycle status. Keep accepted decisions and implemented behavior distinct from drafts and deferred capabilities.
-- Use file-relative Markdown links so they work in the CLI and in repository viewers. Link concepts when the relationship helps traversal, and put a short relation phrase in the link title when known: `[Soil moisture check](../care/soil-moisture-check.md "diagnosed by")`.
-- Use `index.md` for navigation. Update its links when discovery changes. Only the bundle-root index may have OKF version frontmatter; do not treat indexes as concepts.
-- Keep graph neighborhoods focused. Avoid broad reciprocal links added only for symmetry.
-
-## Validate and report
-
-Run `okf-graph validate <bundle-path> --json` or the repository's pinned equivalent. If the bundle has structural quality rules, also run `okf-graph eval <bundle-path> --json` and inspect changed concepts with `concept` and `graph neighbors`. Review warnings and metrics in context; do not add links solely to improve a metric.
-
-Report whether an OKF edit was needed, the concepts changed, the sources checked, exact validation results, and unresolved drafts or conflicts. Do not claim validation passed when it did not run.
+For field definitions and version differences, consult the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md).

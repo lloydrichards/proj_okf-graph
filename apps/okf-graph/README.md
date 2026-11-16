@@ -49,21 +49,22 @@ okf-graph --help
 
 Commands accept local directories and GitHub tree URLs like the example above.
 
-## Give an agent the OKF skill
+## Choose an OKF skill
 
-Print the skill's Markdown for an LLM to read directly:
+| Skill          | When to use it                                                                        |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `okf`          | Write or update a concept when a contract, decision, or other durable fact changes.   |
+| `okf-validate` | Check a bundle with the latest published CLI and report findings.                     |
+| `okf-dream`    | Consolidate overlapping concepts and development notes after a period of active work. |
+
+Read a skill before installing it, or write it into a repository for an agent to use.
 
 ```bash
-npx okf-graph@latest skill read
+npx okf-graph@latest skill read okf-validate
+npx okf-graph@latest skill write okf-dream --path ./my-repo
 ```
 
-Install the same skill in the current repository:
-
-```bash
-npx okf-graph@latest skill write
-```
-
-The command writes `.agents/skills/okf/SKILL.md`. Use `--path <directory>` to select another repository. An existing skill is preserved unless you pass `--force`.
+Each skill installs at `.agents/skills/<name>/SKILL.md`. Omit the name to select `okf`. The target defaults to the current directory. Pass `--force` to replace an existing copy of the selected skill.
 
 ## Learn more
 

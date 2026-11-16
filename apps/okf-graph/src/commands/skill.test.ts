@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -14,9 +15,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const entry = fileURLToPath(new URL("../index.ts", import.meta.url));
-const source = fileURLToPath(
-  new URL("../skills/okf/SKILL.md", import.meta.url),
-);
+const skillMarkdown = (name: string) =>
+  readFileSync(new URL(`../skills/${name}/SKILL.md`, import.meta.url), "utf-8");
 
 const run = (cwd: string, ...args: ReadonlyArray<string>) =>
   spawnSync("bun", [entry, "skill", ...args], { cwd, encoding: "utf-8" });
@@ -25,7 +25,7 @@ describe("skill command", () => {
   it("prints and installs the same Markdown without replacing a local edit", () => {
     const repository = mkdtempSync(join(tmpdir(), "okf-skill-"));
     const destination = join(repository, ".agents/skills/okf/SKILL.md");
-    const markdown = readFileSync(source, "utf-8");
+    const markdown = skillMarkdown("okf");
 
     try {
       const read = run(repository, "read");
@@ -45,6 +45,45 @@ describe("skill command", () => {
       const replace = run(repository, "write", "--force");
       expect(replace.status).toBe(0);
       expect(readFileSync(destination, "utf-8")).toBe(markdown);
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+
+  it("reads and installs each named skill alongside the others", () => {
+    const repository = mkdtempSync(join(tmpdir(), "okf-skill-selection-"));
+    const names = ["okf-validate", "okf-dream", "okf"];
+    try {
+      for (const name of names) {
+        const read = run(repository, "read", name);
+        expect(read.status).toBe(0);
+        expect(read.stdout).toBe(skillMarkdown(name));
+        expect(run(repository, "write", name).status).toBe(0);
+      }
+      for (const name of names) {
+        const destination = join(
+          repository,
+          ".agents",
+          "skills",
+          name,
+          "SKILL.md",
+        );
+        expect(readFileSync(destination, "utf-8")).toBe(skillMarkdown(name));
+      }
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects unknown names before creating an installation directory", () => {
+    const repository = mkdtempSync(join(tmpdir(), "okf-skill-unknown-"));
+    try {
+      for (const action of ["read", "write"]) {
+        const result = run(repository, action, "../unknown");
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("okf-validate");
+      }
+      expect(existsSync(join(repository, ".agents"))).toBe(false);
     } finally {
       rmSync(repository, { recursive: true, force: true });
     }

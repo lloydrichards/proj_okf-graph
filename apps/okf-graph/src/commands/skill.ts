@@ -1,9 +1,17 @@
 import { Console, Effect, FileSystem, Option, Path } from "effect";
-import { Command, Flag } from "effect/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
-const skillName = "okf";
+const skillNames = ["okf", "okf-validate", "okf-dream"] as const;
+const name = Argument.Literals("name", skillNames).pipe(
+  Argument.withDefault("okf"),
+  Argument.withDescription(
+    "Use okf for writing, okf-validate for validation, or okf-dream for consolidation",
+  ),
+);
 
-const loadSkill = Effect.gen(function* () {
+const loadSkill = Effect.fn("loadSkill")(function* (
+  skillName: (typeof skillNames)[number],
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const entryArgument = process.argv[1];
@@ -29,17 +37,17 @@ const force = Flag.Boolean("force").pipe(
   Flag.withDescription("Replace an existing skill file"),
 );
 
-const readSkill = Command.make("read", {}, () =>
+const readSkill = Command.make("read", { name }, ({ name }) =>
   Effect.gen(function* () {
-    const markdown = yield* loadSkill;
+    const markdown = yield* loadSkill(name);
     yield* Effect.sync(() => process.stdout.write(markdown));
   }),
-).pipe(Command.withDescription("Print the OKF skill as Markdown"));
+).pipe(Command.withDescription("Print a bundled skill as Markdown"));
 
 const writeSkill = Command.make(
   "write",
-  { target, force },
-  ({ target, force }) =>
+  { name, target, force },
+  ({ name, target, force }) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -56,7 +64,7 @@ const writeSkill = Command.make(
         repository,
         ".agents",
         "skills",
-        skillName,
+        name,
         "SKILL.md",
       );
 
@@ -83,16 +91,16 @@ const writeSkill = Command.make(
         return;
       }
 
-      const markdown = yield* loadSkill;
+      const markdown = yield* loadSkill(name);
       yield* fs.makeDirectory(path.dirname(destination), { recursive: true });
       yield* fs.writeFileString(destination, markdown, {
         flag: force ? "w" : "wx",
       });
       yield* Console.log(`Installed OKF skill: ${destination}`);
     }),
-).pipe(Command.withDescription("Install the OKF skill in a repository"));
+).pipe(Command.withDescription("Install a bundled skill in a repository"));
 
 export const skill = Command.make("skill").pipe(
   Command.withSubcommands([readSkill, writeSkill]),
-  Command.withDescription("Read or install the OKF repository skill"),
+  Command.withDescription("Read or install bundled OKF skills"),
 );
