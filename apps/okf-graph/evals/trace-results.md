@@ -280,3 +280,27 @@ Five guided agents reported a registry connection error (EPERM). One reported a 
 | Shell calls           |            26 |                62 |            33 |                50 |
 
 On these fixtures the skill identified the intended package online and kept a stale validation result out of the outage reports. Both groups acknowledged the limit of offline verification. The totals include package discovery, manual inspection and alternative validator runs.
+
+## Validation when both prompts name okf-graph
+
+We added the package name to both validation prompts and repeated the previous two cases with six fresh agents per condition. The skill body, fixture, grading criteria, model, and reasoning effort stayed the same. Online runs started with empty npm caches. For the outage, each agent received its own warmed cache of genuine 0.2.0. The disposable registry was stopped and agent shell networking disabled. Setup probes verified a successful cached execution and a failed lookup from an empty cache. A version printed by the cached executable identifies the binary that ran. It cannot establish the current npm tag.
+
+**Live registry.** Both groups went 6/6. Each fetched metadata, ran the exact version corresponding to the live tag (0.3.1 before and after the round), and reported the warning about the missing playbook link in `worker-guide.md`. We checked fetch logs, installed package manifests, command exit status and validator JSON. All six guided agents used a separate fresh metadata cache and then ran the resolved version. The controls also obtained fresh metadata in this cold-cache environment. One explicitly chose a temporary cache when working around a storage issue. Five controls consulted the general-purpose skill shipped in the public CLI via `skill read`. The comparison measures the effect of installing the dedicated validation skill while allowing normal CLI discovery.
+
+**Registry outage.** All six guided agents attempted a fresh-cache npm lookup, reported the connection failure, and said the latest version and validation result were unknown. Four controls ran the cached 0.2.0 validator and obtained clean results. Two of those four correctly qualified the result as an older or unverified release. Both nevertheless attributed stale metadata to the stopped registry or mirror. One used GitHub to identify upstream release 0.3.1. The shell registry outage did not block every external tool, but this agent only executed cached 0.2.0. The other two (control runs 3 and 5) claimed registry lookup succeeded and treated 0.2.0 as current. Their npm metadata lookup and executable version agreed because both came from the warmed cache. The remaining two controls described manual checks and reported that latest-release validation had not run. One also attempted a Python package lookup. All 24 final file snapshots matched their starting state.
+
+| Observed outcome                                                   | Validation skill | No validation skill |
+| ------------------------------------------------------------------ | ---------------: | ------------------: |
+| Online: fetched live metadata, ran 0.3.1, and reported the warning |              6/6 |                 6/6 |
+| Outage: executed cached 0.2.0                                      |              0/6 |                 4/6 |
+| Outage: correctly reported latest-release validation unverified    |              6/6 |                 4/6 |
+| Outage: claimed success from the stale tag                         |              0/6 |                 2/6 |
+
+| Whole-session totals  | Skill, online | Controls, online | Skill, outage | Controls, outage |
+| --------------------- | ------------: | ---------------: | ------------: | ---------------: |
+| Gross input tokens    |       512,939 |        1,096,463 |       637,600 |        1,308,798 |
+| Uncached input tokens |        44,203 |          109,455 |        47,264 |          145,278 |
+| Output tokens         |         3,664 |            6,998 |         4,285 |            6,273 |
+| Shell calls           |            22 |               68 |            34 |               46 |
+
+Naming the package closed the online accuracy gap observed in the previous round. The dedicated skill still reduced exploration and produced a consistent stopping rule when cached metadata was available but the live tag could not be confirmed. These counts describe six runs per condition on each fixture.
