@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -22,54 +23,70 @@ const run = (cwd: string, ...args: ReadonlyArray<string>) =>
   spawnSync("bun", [entry, "skill", ...args], { cwd, encoding: "utf-8" });
 
 describe("skill command", () => {
-  it("prints and installs the same Markdown without replacing a local edit", () => {
-    const repository = mkdtempSync(join(tmpdir(), "okf-skill-"));
-    const destination = join(repository, ".agents/skills/okf/SKILL.md");
-    const markdown = skillMarkdown("okf");
+  const names = ["okf", "okf-validate", "okf-dream"];
 
+  it("prints and installs every bundled skill when the name is omitted", () => {
+    const repository = mkdtempSync(join(tmpdir(), "okf-skill-"));
     try {
       const read = run(repository, "read");
       expect(read.status).toBe(0);
-      expect(read.stdout).toBe(markdown);
+      expect(read.stdout).toBe(names.map(skillMarkdown).join("\n"));
       expect(read.stderr).toBe("");
 
       const write = run(tmpdir(), "write", "--path", repository);
       expect(write.status).toBe(0);
-      expect(readFileSync(destination, "utf-8")).toBe(markdown);
-
-      writeFileSync(destination, "local edit\n");
-      const conflict = run(repository, "write");
-      expect(conflict.status).toBe(1);
-      expect(readFileSync(destination, "utf-8")).toBe("local edit\n");
-
-      const replace = run(repository, "write", "--force");
-      expect(replace.status).toBe(0);
-      expect(readFileSync(destination, "utf-8")).toBe(markdown);
-    } finally {
-      rmSync(repository, { recursive: true, force: true });
-    }
-  });
-
-  it("reads and installs each named skill alongside the others", () => {
-    const repository = mkdtempSync(join(tmpdir(), "okf-skill-selection-"));
-    const names = ["okf-validate", "okf-dream", "okf"];
-    try {
-      for (const name of names) {
-        const read = run(repository, "read", name);
-        expect(read.status).toBe(0);
-        expect(read.stdout).toBe(skillMarkdown(name));
-        expect(run(repository, "write", name).status).toBe(0);
-      }
       for (const name of names) {
         const destination = join(
           repository,
-          ".agents",
-          "skills",
+          ".agents/skills",
           name,
           "SKILL.md",
         );
         expect(readFileSync(destination, "utf-8")).toBe(skillMarkdown(name));
       }
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+
+  it("checks the whole selection for conflicts before installing, unless forced", () => {
+    const repository = mkdtempSync(join(tmpdir(), "okf-skill-conflict-"));
+    const skills = join(repository, ".agents/skills");
+    const edited = join(skills, "okf-dream", "SKILL.md");
+
+    try {
+      mkdirSync(join(skills, "okf-dream"), { recursive: true });
+      writeFileSync(edited, "local edit\n");
+
+      const conflict = run(repository, "write");
+      expect(conflict.status).toBe(1);
+      expect(conflict.stderr).toContain(edited);
+      expect(readdirSync(skills)).toEqual(["okf-dream"]);
+      expect(readFileSync(edited, "utf-8")).toBe("local edit\n");
+
+      expect(run(repository, "write", "--force").status).toBe(0);
+      for (const name of names) {
+        expect(readFileSync(join(skills, name, "SKILL.md"), "utf-8")).toBe(
+          skillMarkdown(name),
+        );
+      }
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+
+  it.each(names)("reads and installs only %s when named", (name) => {
+    const repository = mkdtempSync(join(tmpdir(), "okf-skill-selection-"));
+    const skills = join(repository, ".agents/skills");
+    try {
+      const read = run(repository, "read", name);
+      expect(read.status).toBe(0);
+      expect(read.stdout).toBe(skillMarkdown(name));
+      expect(run(repository, "write", name).status).toBe(0);
+      expect(readdirSync(skills)).toEqual([name]);
+      expect(readFileSync(join(skills, name, "SKILL.md"), "utf-8")).toBe(
+        skillMarkdown(name),
+      );
     } finally {
       rmSync(repository, { recursive: true, force: true });
     }
@@ -95,20 +112,23 @@ describe("skill command", () => {
 
     try {
       mkdirSync(join(repository, ".agents/skills"), { recursive: true });
-      symlinkSync(outside, join(repository, ".agents/skills/okf"));
+      symlinkSync(outside, join(repository, ".agents/skills/okf-dream"));
 
       const directoryLink = run(repository, "write");
       expect(directoryLink.status).toBe(1);
       expect(directoryLink.stderr).toContain("Skill path contains a symlink");
-      expect(() => readFileSync(join(outside, "SKILL.md"))).toThrow();
+      expect(existsSync(join(outside, "SKILL.md"))).toBe(false);
+      expect(readdirSync(join(repository, ".agents/skills"))).toEqual([
+        "okf-dream",
+      ]);
 
-      unlinkSync(join(repository, ".agents/skills/okf"));
-      mkdirSync(join(repository, ".agents/skills/okf"));
+      unlinkSync(join(repository, ".agents/skills/okf-dream"));
+      mkdirSync(join(repository, ".agents/skills/okf-dream"));
       const externalFile = join(outside, "external.md");
       writeFileSync(externalFile, "keep me\n");
       symlinkSync(
         externalFile,
-        join(repository, ".agents/skills/okf/SKILL.md"),
+        join(repository, ".agents/skills/okf-dream/SKILL.md"),
       );
 
       const fileLink = run(repository, "write", "--force");

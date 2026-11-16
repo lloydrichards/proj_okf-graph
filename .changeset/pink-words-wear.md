@@ -2,4 +2,4 @@
 "okf-graph": minor
 ---
 
-Choose a skill for OKF writing, validation with the latest CLI, or periodic cleanup. For example, run `okf-graph skill write okf-dream` to install the cleanup skill.
+Read or install all three OKF skills with `okf-graph skill read` or `okf-graph skill write`. Pass a name to select one. To retain the previous writing-only behavior, use `skill read okf` or `skill write okf`.
