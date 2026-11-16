@@ -124,3 +124,24 @@ The trace of every scored run returned all eight fixture Markdown files before t
 The first attempted control opened a host Pages writing skill and its writing-quality reference despite its empty catalog. We excluded it on exposure grounds and used a fresh control with the same settings. Its unscored turn consumed 19,371 uncached input and 926 output tokens. The scored controls showed no skill reads. Catalog isolation controls discovery; trace inspection still matters.
 
 The handover directed readers to both authorities and the existing procedure linked both owners. The case therefore tests selecting, verifying, and placing durable information when a source trail exists. It did not establish that the writing skill improves those judgments or reliably reduces cost.
+
+## Ambiguous ownership without a handover cue
+
+Case 4 asks the agent to update the bundle after an old-batch drill and explain where it put the change and why. The handover names neither candidate. Both the reconciliation reference and the rebuilding guide already discuss matching account and client keys, cite the same record, and have the same review owner. The [five gates](../src/skills/okf/evals/evals.json) were fixed before the runs. Either page could hold the complete rule if the agent justified the choice for readers and kept the other page accurate.
+
+Six fresh gpt-6-astra sessions at medium reasoning effort received identical prompts and fixtures. Three had only the writing skill and three had an empty skill catalog. No trace showed a host skill read. An independent reviewer graded shuffled, condition-masked diffs, final reports and validation evidence. A separate reviewer checked the visible commands and progress messages.
+
+| Condition     | Rep | Gross input | Uncached input | Output | Shell calls | Edit events | Shell output bytes | Artifact gates |
+| ------------- | --- | ----------- | -------------- | ------ | ----------- | ----------- | ------------------ | -------------- |
+| Writing skill | 1   | 85701       | 16965          | 1094   | 5           | 1           | 6273               | 5/5            |
+| Writing skill | 2   | 85127       | 12167          | 1204   | 7           | 1           | 5817               | 5/5            |
+| Writing skill | 3   | 68477       | 12157          | 1107   | 3           | 1           | 2695               | 5/5            |
+| No skills     | 1   | 66378       | 5450           | 1160   | 3           | 1           | 3760               | 3/5            |
+| No skills     | 2   | 82834       | 9234           | 1197   | 4           | 1           | 3770               | 3/5            |
+| No skills     | 3   | 66332       | 10908          | 1151   | 3           | 1           | 3760               | 3/5            |
+
+All six edited the same two pages, linked from rebuilding to reconciliation, preserved the eligibility conditions and audit rationale, discarded the drill-only details, and passed their first post-edit check. Their stated plans already showed the difference before editing. Each guided agent chose reconciliation to own the repeat-submission rule because it applies to both direct and imported submissions. The rebuilding guide gave the replay-specific action and pointed readers to the full rule. Each control planned to update both pages and then copied the full three-condition rule into both. That duplication accounts for both missed gates, single ownership and treatment of the competing page.
+
+All three controls and the first two guided runs visibly read the handover, decision record, index, and both candidate pages before editing. Guided run 3 stated the correct rule, but its pre-edit command results show only filenames and the skill body. Its diff and report meet the artifact criteria. The trace leaves the source inspection required by the competing-page gate unverified for that run.
+
+Across three runs per condition, the skill used 41,289 uncached input tokens versus 25,592 (+61.3%), 3,405 output tokens versus 3,508 (−2.9%), and 15 shell calls versus 10. These are whole-session totals. On this fixture the skill consistently produced one place to maintain the rule at higher input cost. Three runs per condition on a single case do not establish a general cost or quality advantage.
