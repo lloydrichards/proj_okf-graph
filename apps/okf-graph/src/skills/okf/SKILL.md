@@ -11,4 +11,6 @@ Put the complete rule where readers look for the answer. Give other affected con
 
 In v0.2, cite evidence in `sources` with a concept-relative `resource`. Reuse citations and identify the supporting decision or section. Preserve custom metadata, source IDs, and footnotes. New concepts need YAML frontmatter with a nonempty `type`. Follow local logging conventions. Update `generated.at` on material edits only if the bundle already tracks it. Record verification only after checking the source.
 
+For evidence files outside the bundle, keep the path only in `sources` and cite the decision or section in prose.
+
 Run the repository's OKF check or, with Bun available, `npx --yes okf-graph@latest validate "<bundle-path>" --json`. Report placement, evidence, findings, and open questions.
