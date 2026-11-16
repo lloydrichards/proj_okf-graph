@@ -222,3 +222,32 @@ We ran twelve new serial sessions on case 4 with the same fixture, prompt, rubri
 | Output tokens                      |     14,398 |                 12,645 |
 
 Each revised-skill trace shows the agent reading the skill and all five fixture documents before editing. Each made one edit covering both concepts and ran one clean check. The reconciliation reference kept the full eligibility rule. The rebuild guide linked to that reference and gave the local replay action. The external decision record remained in the existing source metadata. These twelve runs avoided the observed repair on this case. The groups ran at different times, so the token totals alone cannot attribute savings to the added sentence.
+
+## Dream skill comparison on the rotation handover
+
+Six fresh sessions tidied the same [messy bundle](dream-fixture) with only the dream skill enabled. Six controls received an empty catalog and no installed skills. All received the unchanged [case 3 prompt](../src/skills/okf-dream/evals/evals.json), native discovery, gpt-6-astra at medium effort, and the same built validator. We ran up to four sessions concurrently and alternated submission order within pairs. A reviewer compared randomly labeled bundles, diffs and final reports without the assignment key. Each first-pass result then went to a fresh agent with the same prompt and skill condition, giving 24 sessions altogether.
+
+| Outcome                                                                                         | Dream skill | No skills |
+| ----------------------------------------------------------------------------------------------- | ----------: | --------: |
+| Preserved all three incident observations, the unreproduced loss, and uncertainty about restart |         6/6 |       6/6 |
+| Deleted the scratchpad                                                                          |         6/6 |       6/6 |
+| Retired the Tuesday handover                                                                    |         6/6 |       4/6 |
+| Preserved a useful target for the D-17 pager link to Monday                                     |         6/6 |       6/6 |
+| Flagged the accepted two retries versus the implemented four                                    |         6/6 |       6/6 |
+| Kept the requested decision to that retry conflict                                              |         6/6 |       0/6 |
+| Produced a byte-identical bundle on repeat                                                      |         6/6 |       0/6 |
+
+**Consolidation and deletion.** Four guided runs moved P-41, P-44 and P-49 into a recovery concept. Two used a consolidated handover. All six kept the retry decision and its review owner, converted Monday into a pointer for the pager, and explained where Tuesday's evidence went and why scratch had no replacement. Three controls reused Monday as the handover, one retained it as a pointer, and two kept both shift pages alongside a topical recovery page. Those last two repeated incident evidence across concepts. Every first pass kept Lin's report of one missing delivery on P-49 scoped as unreproduced. No agent recommended restarting dispatch on that evidence.
+
+**Human review.** All agents asked whether to restore the two retries accepted in D-8 or authorize four. Guided agents kept restart cause, safety and the P-49 loss as evidence gaps. Each control also asked for at least one investigation assignment, prioritization or future decision on restart guidance. One extended the retry decision's team ownership to the whole handoff without a source. No agent requested permission to delete the scratchpad.
+
+**Repeat behavior.** All six guided repeats validated and finished without a file change. All six unguided repeats edited the index again. Four also edited a handover or decision page. Examples include adding a table of open work and restating investigation assignments. Both groups passed final validation on every first and repeat run and left files outside the bundle unchanged.
+
+| Whole-session totals  | Dream skill, first | No skills, first | Dream skill, repeat | No skills, repeat |
+| --------------------- | -----------------: | ---------------: | ------------------: | ----------------: |
+| Gross input tokens    |            565,907 |          681,280 |             406,180 |           605,600 |
+| Uncached input tokens |             44,435 |           61,760 |              43,300 |            55,712 |
+| Output tokens         |              9,942 |           12,251 |               3,091 |             8,357 |
+| Shell calls           |                 38 |               33 |                  35 |                34 |
+
+On this fixture, scratch deletion and factual grounding occurred under both conditions. The differences were how completely agents retired the shift structure, which questions they escalated, and whether the same cleanup made more edits a second time.
