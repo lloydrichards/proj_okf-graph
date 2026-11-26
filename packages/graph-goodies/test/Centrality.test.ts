@@ -1,5 +1,5 @@
 import { Effect, Graph } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Centrality from "@repo/graph-goodies/Centrality";
 
 const directed = Graph.directed<string, undefined>((graph) => {
@@ -18,6 +18,19 @@ describe("pageRank", () => {
     expect(result.scores.get(1)).toBeCloseTo(0.6, 5);
     expect(result.residual).toBeLessThanOrEqual(1e-6);
   });
+
+  it.effect("lets a competing fiber run during power iteration", () =>
+    Effect.gen(function* () {
+      const winner = yield* Effect.raceFirst(
+        Centrality.pageRank(directed, { tolerance: 1e-12 }).pipe(
+          Effect.as("ranking"),
+        ),
+        Effect.yieldNow.pipe(Effect.as("competing fiber")),
+      );
+
+      expect(winner).toBe("competing fiber");
+    }),
+  );
 
   it("uses the restart distribution at dead ends and normalizes large weights", () => {
     const seeded = Effect.runSync(

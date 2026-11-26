@@ -94,7 +94,8 @@ export class InvalidPageRankOptions extends Schema.TaggedError<
  * with {@link InvalidPageRankOptions}.
  *
  * If the iteration limit is reached before convergence, the result contains
- * the last estimate with `converged` set to `false`.
+ * the last estimate with `converged` set to `false`. The effect yields
+ * between iterations so other fibers can run and interrupt it.
  *
  * **Example**
  *
@@ -194,6 +195,9 @@ export const pageRank = Effect.fnUntraced(function* <
     );
     current = next;
     iterations++;
+    if (residual > tolerance && iterations < maxIterations) {
+      yield* Effect.yieldNow;
+    }
   } while (residual > tolerance && iterations < maxIterations);
 
   return {
