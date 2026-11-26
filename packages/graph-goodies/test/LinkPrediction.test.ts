@@ -95,3 +95,33 @@ it.effect(
       ]);
     }),
 );
+
+it.effect(
+  "breaks score ties by target index regardless of witness index order",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.directed<number, undefined>((graph) => {
+        for (let node = 0; node < 10; node++) Graph.addNode(graph, node);
+        const degrees = [2, 3, 6, 6, 3, 2];
+        for (const [index, degree] of degrees.entries()) {
+          const witness = index + 3;
+          Graph.addEdge(graph, 0, witness, undefined);
+          Graph.addEdge(graph, witness, index < 3 ? 1 : 2, undefined);
+          const otherSuccessors = [0, 3, 4, 5, 6, 7, 8].filter(
+            (node) => node !== witness,
+          );
+          for (const target of otherSuccessors.slice(0, degree - 1)) {
+            Graph.addEdge(graph, witness, target, undefined);
+          }
+        }
+      });
+
+      const [first, second] = yield* LinkPrediction.rankTwoHopCandidates(
+        graph,
+        0,
+      );
+      expect(first?.target).toBe(1);
+      expect(second?.target).toBe(2);
+      expect(first?.score).toBe(second?.score);
+    }),
+);

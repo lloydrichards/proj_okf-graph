@@ -136,7 +136,7 @@ const candidatesByScore = Order.combine(
  * Uses the same candidates and witnesses as {@link twoHopCandidates}. Each
  * witness contributes one divided by its number of distinct successors,
  * including successors that are ineligible as candidates. Parallel links
- * count once towards that degree. Results sort by decreasing score, then
+ * count once towards that degree. Contributions are summed in ascending degree order. Results sort by decreasing score, then
  * ascending target index for equal scores.
  */
 export const rankTwoHopCandidates = Effect.fnUntraced(function* <N, E>(
@@ -154,10 +154,10 @@ export const rankTwoHopCandidates = Effect.fnUntraced(function* <N, E>(
   return candidates
     .map((candidate) => ({
       ...candidate,
-      score: candidate.intermediates.reduce(
-        (score, intermediate) => score + 1 / degrees.get(intermediate)!,
-        0,
-      ),
+      score: candidate.intermediates
+        .map((intermediate) => degrees.get(intermediate)!)
+        .sort(Order.Number)
+        .reduce((score, degree) => score + 1 / degree, 0),
     }))
     .sort(candidatesByScore);
 });
