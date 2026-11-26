@@ -47,16 +47,11 @@ root.pipe(
       const failure = Cause.findErrorOption(cause);
       if (
         Option.isSome(failure) &&
-        failure.value instanceof GraphConceptNotFound
+        (failure.value instanceof GraphConceptNotFound ||
+          failure.value instanceof ValidateCommandFailed)
       ) {
         process.exitCode = failure.value[Runtime.errorExitCode];
         return;
-      }
-      if (
-        Option.isSome(failure) &&
-        failure.value instanceof ValidateCommandFailed
-      ) {
-        return yield* Effect.failCause(cause);
       }
       if (Cause.hasInterruptsOnly(cause)) {
         const message = Box.vsep(
