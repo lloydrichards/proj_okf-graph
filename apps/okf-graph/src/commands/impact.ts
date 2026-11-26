@@ -15,7 +15,7 @@ function skipLogLevel(args: ReadonlyArray<string>, start: number): number {
   return index;
 }
 
-// Effect flags consume one value. Pack the two adjacent IDs at the CLI boundary.
+// Expand the two-ID shorthand into the single-value flags used by the wizard.
 export function impactArgs(args: ReadonlyArray<string>): ReadonlyArray<string> {
   const graphIndex = skipLogLevel(args, 0);
   const impactIndex = skipLogLevel(args, graphIndex + 1);
@@ -28,17 +28,10 @@ export function impactArgs(args: ReadonlyArray<string>): ReadonlyArray<string> {
       normalized.push(...args.slice(i));
       break;
     }
-    if (arg.startsWith("--without-link=")) {
-      normalized.push("--without-link=[]");
-      continue;
-    }
-    if (arg !== "--without-link") {
-      normalized.push(arg);
-      continue;
-    }
     const source = args[i + 1];
     const target = args[i + 2];
     if (
+      arg !== "--without-link" ||
       source === undefined ||
       target === undefined ||
       source.startsWith("--") ||
@@ -46,26 +39,13 @@ export function impactArgs(args: ReadonlyArray<string>): ReadonlyArray<string> {
       source === "-h" ||
       target === "-h"
     ) {
-      normalized.push("--without-link=[]");
+      normalized.push(arg);
       continue;
     }
-    normalized.push(`--without-link=${JSON.stringify([source, target])}`);
+    normalized.push(`--without-link=${source}`, `--link-target=${target}`);
     i += 2;
   }
   return normalized;
-}
-
-function decodeLink(value: string): readonly [string, string] | undefined {
-  try {
-    const pair: unknown = JSON.parse(value);
-    if (!Array.isArray(pair) || pair.length !== 2) return undefined;
-    const [source, target] = pair;
-    if (typeof source === "string" && typeof target === "string")
-      return [source, target];
-  } catch {
-    return undefined;
-  }
-  return undefined;
 }
 
 export const impact = Command.make(
@@ -77,7 +57,13 @@ export const impact = Command.make(
     link: Flag.String("without-link").pipe(
       Flag.atMost(1),
       Flag.withDescription(
-        "Simulate removing all authored links from SOURCE to TARGET (pass both IDs)",
+        "Source ID for link removal. Pass TARGET next or use --link-target.",
+      ),
+    ),
+    linkTarget: Flag.String("link-target").pipe(
+      Flag.atMost(1),
+      Flag.withDescription(
+        "Target ID for link removal. Use = for IDs that look like flags.",
       ),
     ),
     concept: Flag.String("without-concept").pipe(
@@ -86,7 +72,7 @@ export const impact = Command.make(
     ),
     json,
   },
-  ({ bundlePath, from, to, link, concept, json }) =>
+  ({ bundlePath, from, to, link, linkTarget, concept, json }) =>
     Effect.gen(function* () {
       const fail = (message: string) =>
         Effect.gen(function* () {
@@ -99,15 +85,17 @@ export const impact = Command.make(
           "Specify exactly one of --without-link SOURCE TARGET or --without-concept ID.",
         );
       }
-      const [encoded] = link;
-      const pair = encoded === undefined ? undefined : decodeLink(encoded);
-      if (encoded !== undefined && pair === undefined) {
-        return yield* fail("--without-link requires SOURCE and TARGET.");
+      const [source] = link;
+      const [target] = linkTarget;
+      if ((source === undefined) !== (target === undefined)) {
+        return yield* fail(
+          "--without-link requires SOURCE and TARGET. Pass TARGET next or use --link-target.",
+        );
       }
       const removal =
-        pair === undefined
-          ? ({ kind: "concept", id: concept[0]! } as const)
-          : ({ kind: "link", source: pair[0], target: pair[1] } as const);
+        source !== undefined && target !== undefined
+          ? ({ kind: "link", source, target } as const)
+          : ({ kind: "concept", id: concept[0]! } as const);
       const okf = yield* OkfService;
       const { graph } = yield* okf.make(bundlePath);
       const result = analyzeGraphImpact(graph, from, to, removal);

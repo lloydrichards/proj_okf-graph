@@ -27,6 +27,8 @@ function withBundle(
       isolated: "No links.",
       "-3": "[goal](goal.md)",
       dash: "[-3](-3.md)",
+      flags: "[middle](--middle.md)",
+      "--middle": "[goal](goal.md)",
     })) {
       writeFileSync(
         join(root, `${id}.md`),
@@ -147,6 +149,15 @@ it("requires exactly one complete edit", () => {
     for (const options of [
       [],
       ["--without-link", "left"],
+      ["--link-target", "goal", "--without-concept", "left"],
+      [
+        "--without-link",
+        "left",
+        "--link-target",
+        "goal",
+        "--link-target",
+        "right",
+      ],
       ["--without-link", "left", "goal", "--without-concept", "right"],
       ["--without-link", "left", "goal", "--without-link", "right", "goal"],
       ["--without-concept", "left", "--without-concept", "right"],
@@ -177,4 +188,35 @@ it.each([
       removedLinkCount: 1,
     });
   }, prefix);
+});
+
+it("runs wizard-style arguments and accepts flag-like source and target IDs", () => {
+  withBundle((invoke) => {
+    const source = invoke(
+      "flags",
+      "goal",
+      "--without-link=--middle",
+      "--link-target",
+      "goal",
+      "--json",
+    );
+    expect(source.status).toBe(0);
+    expect(JSON.parse(source.stdout)).toMatchObject({
+      after: { path: null },
+      removedLinkCount: 1,
+    });
+    const target = invoke(
+      "flags",
+      "goal",
+      "--without-link",
+      "flags",
+      "--link-target=--middle",
+      "--json",
+    );
+    expect(target.status).toBe(0);
+    expect(JSON.parse(target.stdout)).toMatchObject({
+      after: { path: null },
+      removedLinkCount: 1,
+    });
+  });
 });
