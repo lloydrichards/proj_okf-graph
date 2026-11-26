@@ -24,7 +24,7 @@ For example, an OKF caller can turn a tag into restart weights and use PageRank 
 
 - Use named subpath exports and namespace imports. Keep an implementation private until a production caller needs it.
 - Use plain functions for total calculations and `Effect.fnUntraced` with an explicit `Effect.fn.Return<A, E>` for expected failures. Use `Schema.TaggedError` for those failures. A cut of size zero, an unreachable destination, or an iteration limit can be valid output when the operation defines them that way.
-- Use readonly result shapes and operation-specific options. Add schemas where data is decoded at a boundary. Leave graph construction, tracing, and runtime dependencies with the caller.
+- Use readonly result shapes and operation-specific options. Use Schema `.check` for option ranges and relationships the options alone can validate. Put defaults in the same schema. Keep checks that depend on the input graph in the operation. Leave graph construction, tracing, and runtime dependencies with the caller.
 - Use collection expressions for projections and keep mutable worklists and numeric buffers local to the algorithms that need them. Specify direction, multiplicity, self-loops, tie order, node identity, and weight semantics wherever they change the result.
 - Open every public module with its purpose and give each export a summary. Add **Details** for behavior the type cannot express and **Example** for a real call. Follow TaskPlan’s section style and omit Effect’s release and navigation tags.
 - Test through the public subpath with small graphs whose results can be derived by hand. Keep scratchpads focused on one comparison a reader can run.

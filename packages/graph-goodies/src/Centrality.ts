@@ -8,7 +8,7 @@
  * @module
  */
 
-import { Effect, Graph, Schema } from "effect";
+import { Effect, Graph, Schema, SchemaIssue } from "effect";
 
 /** Controls the random walk and its convergence. */
 export type PageRankOptions = {
@@ -34,12 +34,46 @@ export type PageRankResult = {
   readonly converged: boolean;
 };
 
-/** Raised by {@link pageRank} when an option is invalid. The `option` field identifies the rejected setting. */
+const Options = Schema.Struct({
+  alpha: Schema.Finite.check(
+    Schema.isGreaterThanOrEqualTo(0),
+    Schema.isLessThan(1),
+  ).pipe(Schema.withDecodingDefault(Effect.succeed(0.85))),
+  tolerance: Schema.Finite.check(Schema.isGreaterThan(0)).pipe(
+    Schema.withDecodingDefault(Effect.succeed(1e-6)),
+  ),
+  maxIterations: Schema.Int.check(Schema.isGreaterThan(0)).pipe(
+    Schema.withDecodingDefault(Effect.succeed(100)),
+  ),
+  restart: Schema.optional(
+    Schema.ReadonlyMap(
+      Schema.Number,
+      Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
+    ).check(
+      Schema.makeFilter((weights) =>
+        Array.from(weights.values()).some((weight) => weight > 0)
+          ? undefined
+          : "At least one restart weight must be positive.",
+      ),
+    ),
+  ),
+});
+
+const OptionName = Schema.Literals([
+  "alpha",
+  "tolerance",
+  "maxIterations",
+  "restart",
+]);
+const isOptionName = Schema.is(OptionName);
+const formatOptionIssue = SchemaIssue.makeFormatterStandardSchemaV1();
+
+/** Raised by {@link pageRank} when an option is invalid. The `option` field identifies the rejected setting, or is `"options"` for an invalid options object. */
 export class InvalidPageRankOptions extends Schema.TaggedError<
   InvalidPageRankOptions,
   { readonly brand: unique symbol }
 >()("InvalidPageRankOptions", {
-  option: Schema.Literals(["alpha", "tolerance", "maxIterations", "restart"]),
+  option: Schema.Union([OptionName, Schema.Literal("options")]),
   message: Schema.String,
 }) {}
 
@@ -86,30 +120,17 @@ export const pageRank = Effect.fnUntraced(function* <
   graph: Graph.Graph<N, E, K>,
   options: PageRankOptions = {},
 ): Effect.fn.Return<PageRankResult, InvalidPageRankOptions> {
-  const {
-    alpha = 0.85,
-    tolerance = 1e-6,
-    maxIterations = 100,
-    restart,
-  } = options;
-  if (!Number.isFinite(alpha) || alpha < 0 || alpha >= 1) {
-    return yield* new InvalidPageRankOptions({
-      option: "alpha",
-      message: "Alpha must be at least 0 and less than 1.",
-    });
-  }
-  if (!Number.isFinite(tolerance) || tolerance <= 0) {
-    return yield* new InvalidPageRankOptions({
-      option: "tolerance",
-      message: "Tolerance must be positive and finite.",
-    });
-  }
-  if (!Number.isSafeInteger(maxIterations) || maxIterations < 1) {
-    return yield* new InvalidPageRankOptions({
-      option: "maxIterations",
-      message: "Maximum iterations must be a positive safe integer.",
-    });
-  }
+  const { alpha, tolerance, maxIterations, restart } =
+    yield* Schema.decodeUnknownEffect(Options)(options).pipe(
+      Effect.mapError((error) => {
+        const key = formatOptionIssue(error.issue).issues[0]?.path?.[0];
+
+        return new InvalidPageRankOptions({
+          option: isOptionName(key) ? key : "options",
+          message: error.message,
+        });
+      }),
+    );
 
   const nodes = Array.from(Graph.nodes(graph), ([id]) => id);
   const slots = new Map(nodes.map((id, slot) => [id, slot]));
@@ -123,20 +144,14 @@ export const pageRank = Effect.fnUntraced(function* <
     let largest = 0;
     for (const [id, weight] of restart) {
       const slot = slots.get(id);
-      if (slot === undefined || !Number.isFinite(weight) || weight < 0) {
+      if (slot === undefined) {
         return yield* new InvalidPageRankOptions({
           option: "restart",
-          message: `Restart weight for node ${id} must be finite, non-negative, and refer to a graph node.`,
+          message: `Restart weight for node ${id} must refer to a graph node.`,
         });
       }
       weights[slot] = weight;
       largest = Math.max(largest, weight);
-    }
-    if (largest === 0) {
-      return yield* new InvalidPageRankOptions({
-        option: "restart",
-        message: "At least one restart weight must be positive.",
-      });
     }
     // Scale before summing so large finite weights cannot overflow.
     const total = weights.reduce((sum, weight) => sum + weight / largest, 0);
