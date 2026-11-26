@@ -31,16 +31,16 @@ For example, an OKF caller can turn a tag into restart weights and use PageRank 
 
 ## First operations
 
-| Operation                         | Caller question                                           | Small example                                                              |
-| --------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `Centrality.pageRank`             | Where does a walk spend time?                             | A one-way link gives the destination more visits than the start.           |
-| `Connectivity.dominators`         | Which nodes must a reader pass through?                   | A single junction before a fork dominates both branches.                   |
-| `Paths.findTypedPath`             | Can I follow this exact sequence of relationships?        | A diagnosis edge followed by a treatment edge reaches the requested guide. |
-| `LinkPrediction.twoHopCandidates` | Which missing outgoing links have nearby evidence?        | Two distinct intermediate pages point to the same unlinked page.           |
-| `Structure.transitiveReduction`   | Which shortcuts can I remove without losing reachability? | In a DAG with A → B → C and A → C, keep the two edges through B.           |
+| Operation                         | Caller question                                           | Small example                                                                                            |
+| --------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Centrality.pageRank`             | Where does a walk spend time?                             | A one-way link gives the destination more visits than the start.                                         |
+| `Connectivity.dominators`         | Which nodes must a reader pass through?                   | A single junction before a fork dominates both branches.                                                 |
+| `Connectivity.minimumEdgeCut`     | How many edges must disappear to block a route?           | Two independent routes need two removals, even when neither intermediate page dominates the destination. |
+| `Paths.findTypedPath`             | Can I follow this exact sequence of relationships?        | A diagnosis edge followed by a treatment edge reaches the requested guide.                               |
+| `LinkPrediction.twoHopCandidates` | Which missing outgoing links have nearby evidence?        | Two distinct intermediate pages point to the same unlinked page.                                         |
+| `Structure.transitiveReduction`   | Which shortcuts can I remove without losing reachability? | In a DAG with A → B → C and A → C, keep the two edges through B.                                         |
 
 ## Follow-up candidates
 
-- Try minimum edge cuts alongside dominators. A graph can have several independent paths and no required intermediate page. A cut can still show how many authored links would have to disappear to break access.
 - Compare two-hop counts with a score that discounts intermediates linking to many destinations. Keep the witnesses in the result so a reviewer can trace each suggestion.
 - Explore a Steiner tree for connecting three or more pages and Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods. Each needs a sample graph that shows what the result adds to the operations above.

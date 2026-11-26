@@ -71,3 +71,129 @@ it.effect("rejects a missing start node", () =>
     expect(error).toMatchObject({ _tag: "UnknownStartNode", start: 42 });
   }),
 );
+
+it.effect("finds a two-edge cut when neither intermediate node dominates", () =>
+  Effect.gen(function* () {
+    const graph = Graph.directed<string, undefined>((graph) => {
+      const start = Graph.addNode(graph, "start");
+      const left = Graph.addNode(graph, "left");
+      const right = Graph.addNode(graph, "right");
+      const end = Graph.addNode(graph, "end");
+      Graph.addEdge(graph, start, left, undefined);
+      Graph.addEdge(graph, left, end, undefined);
+      Graph.addEdge(graph, start, right, undefined);
+      Graph.addEdge(graph, right, end, undefined);
+    });
+    const dominators = yield* Connectivity.dominators(graph, 0);
+    const cut = yield* Connectivity.minimumEdgeCut(graph, {
+      source: 0,
+      target: 3,
+    });
+
+    expect(dominators.get(3)).toEqual(new Set([0, 3]));
+    expect([...cut]).toEqual([0, 2]);
+    expect(Graph.edgeCount(graph)).toBe(4);
+  }),
+);
+
+it.effect(
+  "reroutes existing flow when the first route would hide a second route",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.directed<number, undefined>((graph) => {
+        for (let i = 0; i < 6; i++) Graph.addNode(graph, i);
+        Graph.addEdge(graph, 0, 1, undefined);
+        Graph.addEdge(graph, 0, 2, undefined);
+        Graph.addEdge(graph, 1, 3, undefined);
+        Graph.addEdge(graph, 1, 4, undefined);
+        Graph.addEdge(graph, 2, 3, undefined);
+        Graph.addEdge(graph, 3, 5, undefined);
+        Graph.addEdge(graph, 4, 5, undefined);
+      });
+
+      const cut = yield* Connectivity.minimumEdgeCut(graph, {
+        source: 0,
+        target: 5,
+      });
+      expect([...cut]).toEqual([0, 1]);
+    }),
+);
+
+it.effect(
+  "counts parallel undirected links once each in either direction",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.undirected<string, undefined>((graph) => {
+        const start = Graph.addNode(graph, "start");
+        const end = Graph.addNode(graph, "end");
+        Graph.addEdge(graph, end, start, undefined);
+        Graph.addEdge(graph, start, end, undefined);
+        Graph.addEdge(graph, start, start, undefined);
+      });
+
+      const cut = yield* Connectivity.minimumEdgeCut(graph, {
+        source: 0,
+        target: 1,
+      });
+      expect([...cut]).toEqual([0, 1]);
+    }),
+);
+
+it.effect("excludes edges entering the source side of a directed cut", () =>
+  Effect.gen(function* () {
+    const graph = Graph.beginMutation(Graph.directed<string, undefined>());
+    const source = Graph.addNode(graph, "source");
+    const removed = Graph.addNode(graph, "removed");
+    const target = Graph.addNode(graph, "target");
+    Graph.removeNode(graph, removed);
+    Graph.addEdge(graph, target, source, undefined);
+    const forward = Graph.addEdge(graph, source, target, undefined);
+
+    const cut = yield* Connectivity.minimumEdgeCut(Graph.endMutation(graph), {
+      source,
+      target,
+    });
+
+    expect([...cut]).toEqual([forward]);
+  }),
+);
+
+it.effect("returns an empty cut when the target is already unreachable", () =>
+  Effect.gen(function* () {
+    const graph = Graph.directed<string, undefined>((graph) => {
+      const start = Graph.addNode(graph, "start");
+      const end = Graph.addNode(graph, "end");
+      Graph.addEdge(graph, end, start, undefined);
+    });
+
+    const cut = yield* Connectivity.minimumEdgeCut(graph, {
+      source: 0,
+      target: 1,
+    });
+    expect(cut.size).toBe(0);
+  }),
+);
+
+it.effect("rejects unknown or identical endpoints", () =>
+  Effect.gen(function* () {
+    const graph = Graph.directed<string, undefined>((graph) => {
+      Graph.addNode(graph, "start");
+    });
+
+    for (const input of [
+      { source: 1, target: 0, reason: "unknownSource" },
+      { source: 0, target: 1, reason: "unknownTarget" },
+      { source: 0, target: 0, reason: "sameNode" },
+    ]) {
+      const { reason, ...endpoints } = input;
+      const error = yield* Effect.flip(
+        Connectivity.minimumEdgeCut(graph, endpoints),
+      );
+      expect(error).toMatchObject({
+        _tag: "InvalidEdgeCutEndpoints",
+        ...endpoints,
+        reason,
+      });
+    }
+  }),
+);

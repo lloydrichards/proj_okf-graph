@@ -76,6 +76,13 @@ describe("findTypedPath", () => {
           labels: ["evidence", "context"],
           label,
         });
+        const reversedLabels = yield* Paths.findTypedPath(graph, {
+          source,
+          target,
+          labels: ["evidence", "context"],
+          label,
+        });
+        expect(reversedLabels).toEqual(Option.none());
         expect(result).toEqual(Option.none());
       }),
   );
