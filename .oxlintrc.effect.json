@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+  "extends": ["./.oxlintrc.json"],
+  "plugins": ["effecttsgo", "oxc", "typescript", "unicorn"],
+  "rules": {
+    "effecttsgo/effect-try-without-catch": "error"
+  }
+}
