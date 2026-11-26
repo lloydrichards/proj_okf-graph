@@ -36,11 +36,18 @@
         "barrelImportPackages": ["effect"],
         "includeSuggestionsInTsc": true,
         "ignoreEffectWarningsInTscExitCode": true,
+        "ignoreEffectSuggestionsInTscExitCode": true,
         "diagnosticSeverity": {
           "cryptoRandomUUIDInEffect": "suggestion",
           "globalDateInEffect": "suggestion",
           "layerMergeAllWithDependencies": "warning",
-          "missingEffectServiceDependency": "warning"
+          "missingEffectServiceDependency": "warning",
+          "effectTryWithoutCatch": "error",
+          "floatingEffect": "error",
+          "missingEffectContext": "error",
+          "missingEffectError": "error",
+          "missingLayerContext": "error",
+          "missingReturnYieldStar": "error"
         }
       }
     ]

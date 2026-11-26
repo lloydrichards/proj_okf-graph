@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+  "plugins": ["effecttsgo", "unicorn"],
+  "rules": {
+    "effecttsgo/effect-try-without-catch": "error",
+    "unicorn/prefer-array-flat-map": "error"
+  }
+}
