@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -13,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "@effect/vitest";
 
 const entry = fileURLToPath(new URL("../index.ts", import.meta.url));
@@ -60,7 +62,10 @@ describe("skill command", () => {
 
       const conflict = run(repository, "write");
       expect(conflict.status).toBe(1);
-      expect(conflict.stderr).toContain(edited);
+      expect(stripVTControlCharacters(conflict.stderr)).toBe(
+        `Skill already exists: ${edited}. Use --force to replace it.\n`,
+      );
+      expect(conflict.stdout).toBe("");
       expect(readdirSync(skills)).toEqual(["okf-dream"]);
       expect(readFileSync(edited, "utf-8")).toBe("local edit\n");
 
@@ -105,6 +110,51 @@ describe("skill command", () => {
       rmSync(repository, { recursive: true, force: true });
     }
   });
+
+  it("rejects a non-file destination even with --force", () => {
+    const repository = mkdtempSync(join(tmpdir(), "okf-skill-nonfile-"));
+    const skills = join(repository, ".agents/skills");
+    const destination = join(skills, "okf-dream/SKILL.md");
+    try {
+      mkdirSync(destination, { recursive: true });
+
+      const result = run(repository, "write", "--force");
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(stripVTControlCharacters(result.stderr)).toBe(
+        `Not a regular file: ${destination}\n`,
+      );
+      expect(readdirSync(skills)).toEqual(["okf-dream"]);
+      expect(readdirSync(destination)).toEqual([]);
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "reports a filesystem inspection failure before writing any skills",
+    () => {
+      const repository = mkdtempSync(join(tmpdir(), "okf-skill-inspect-"));
+      const skills = join(repository, ".agents/skills");
+      const inaccessible = join(skills, "okf-dream");
+      mkdirSync(inaccessible, { recursive: true });
+
+      try {
+        chmodSync(inaccessible, 0o600);
+        const result = run(repository, "write");
+
+        expect(result.status).toBe(1);
+        expect(result.stdout).not.toContain("Installed OKF skill:");
+        expect(result.stderr).toMatch(/permission denied|PermissionDenied/i);
+        expect(result.stderr).toContain("lstat");
+        expect(readdirSync(skills)).toEqual(["okf-dream"]);
+      } finally {
+        chmodSync(inaccessible, 0o700);
+        rmSync(repository, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("rejects symlinks in the install path", () => {
     const repository = mkdtempSync(join(tmpdir(), "okf-skill-links-"));
