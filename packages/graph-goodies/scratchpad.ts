@@ -1,4 +1,4 @@
-import * as PageRank from "@repo/graph-goodies/PageRank";
+import * as Centrality from "@repo/graph-goodies/Centrality";
 import { Console, Effect, Graph } from "effect";
 
 const mutable = Graph.beginMutation(Graph.directed<string, undefined>());
@@ -13,8 +13,8 @@ const graph = Graph.endMutation(mutable);
 await Effect.runPromise(
   Effect.gen(function* () {
     const nodes = Array.from(Graph.nodes(graph));
-    const global = yield* PageRank.pageRank(graph);
-    const seeded = yield* PageRank.pageRank(graph, {
+    const global = yield* Centrality.pageRank(graph);
+    const seeded = yield* Centrality.pageRank(graph, {
       restart: new Map([[start, 1]]),
     });
 

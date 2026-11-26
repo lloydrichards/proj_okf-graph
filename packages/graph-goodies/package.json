@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./PageRank": "./src/PageRank.ts",
+    "./Centrality": "./src/Centrality.ts",
     "./internal/*": null
   },
   "scripts": {
