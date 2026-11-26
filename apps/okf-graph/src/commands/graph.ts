@@ -8,6 +8,7 @@ import {
   Graph,
   Match,
   Option,
+  Order,
   pipe,
   Runtime,
 } from "effect";
@@ -316,6 +317,43 @@ const topologies = Command.make(
   ),
 );
 
+const shortestPathByConceptId = <N extends DisplayNode>(
+  graph: Graph.DirectedGraph<N, unknown>,
+  from: Graph.NodeIndex,
+  to: Graph.NodeIndex,
+): ReadonlyArray<N> => {
+  const distances = Graph.unweightedDistances(graph, to, {
+    direction: "incoming",
+  });
+  let distance = distances.get(from);
+  const start = Option.getOrUndefined(Graph.getNode(graph, from));
+  if (distance === undefined || start === undefined) return [];
+
+  const nodes = [start];
+  let current = from;
+  while (distance > 0) {
+    let next: { index: Graph.NodeIndex; node: N } | undefined;
+    // Only successors one hop closer to the target can complete a shortest path.
+    for (const index of Graph.successors(graph, current)) {
+      if (distances.get(index) !== distance - 1) continue;
+      const node = Option.getOrUndefined(Graph.getNode(graph, index));
+      if (
+        node !== undefined &&
+        (next === undefined || Order.String(node.id, next.node.id) < 0)
+      ) {
+        next = { index, node };
+      }
+    }
+
+    if (next === undefined) return [];
+    nodes.push(next.node);
+    current = next.index;
+    distance--;
+  }
+
+  return nodes;
+};
+
 const path = Command.make(
   "path",
   { bundlePath, from: conceptId, to: conceptId, json },
@@ -335,13 +373,9 @@ const path = Command.make(
         return yield* failConceptNotFound(to, json);
       }
 
-      const result = Graph.dijkstra(graph.graph, {
-        source: fromIndex,
-        target: toIndex,
-        cost: () => 1,
-      });
+      const nodes = shortestPathByConceptId(graph.graph, fromIndex, toIndex);
 
-      if (Option.isNone(result)) {
+      if (nodes.length === 0) {
         yield* Console.log(
           Match.value(json).pipe(
             Match.when(true, () =>
@@ -352,14 +386,6 @@ const path = Command.make(
         );
         return;
       }
-
-      const nodes = pipe(
-        result.value.path,
-        Array.map((nodeIndex) =>
-          Option.getOrUndefined(Graph.getNode(graph.graph, nodeIndex)),
-        ),
-        Array.filter((node) => node !== undefined),
-      );
 
       const content = yield* Box.renderPretty(renderPath(from, to, nodes));
 
