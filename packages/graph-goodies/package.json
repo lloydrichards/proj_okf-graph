@@ -5,6 +5,10 @@
   "type": "module",
   "exports": {
     "./Centrality": "./src/Centrality.ts",
+    "./Connectivity": "./src/Connectivity.ts",
+    "./Paths": "./src/Paths.ts",
+    "./LinkPrediction": "./src/LinkPrediction.ts",
+    "./Structure": "./src/Structure.ts",
     "./internal/*": null
   },
   "scripts": {
