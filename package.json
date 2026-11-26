@@ -11,20 +11,21 @@
     "clean": "vp cache clean && vp run --no-cache --filter \"./apps/*\" --filter \"./packages/*\" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "effect-tsgo oxlint --type-aware",
+    "lint:fix": "effect-tsgo oxlint --type-aware --fix",
     "test": "vp run -r test",
     "changeset": "changeset",
     "changeset:status": "changeset status",
-    "prepare": "effect-tsgo patch"
+    "prepare": "effect-tsgo patch --typescript"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
     "vite-plus": "^1.5.1",
     "oxfmt": "0.76.0",
-    "oxlint": "1.91.0",
+    "oxlint": "1.95.0",
+    "oxlint-tsgolint": "7.0.2008",
     "vitest": "^5.1.0",
-    "@effect/tsgo": "0.67.5",
+    "@effect/tsgo": "0.73.7",
     "typescript": "7.0.2"
   },
   "engines": {

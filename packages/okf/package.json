@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@effect-vfs/memory": "0.11.0",
-    "@effect/platform-node-shared": "4.1.4",
+    "@effect/platform-node-shared": "4.1.6",
     "@repo/domain": "workspace:*",
-    "effect": "4.1.4",
+    "effect": "4.1.6",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
@@ -26,8 +26,8 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.1.4",
-    "@effect/vitest": "4.1.4",
+    "@effect/platform-node": "4.1.6",
+    "@effect/vitest": "4.1.6",
     "@repo/config-typescript": "workspace:*",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.4.0",

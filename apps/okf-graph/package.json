@@ -31,8 +31,8 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.1.4",
-    "effect": "4.1.4",
+    "@effect/platform-bun": "4.1.6",
+    "effect": "4.1.6",
     "effect-boxes": "^0.18.1"
   },
   "devDependencies": {
