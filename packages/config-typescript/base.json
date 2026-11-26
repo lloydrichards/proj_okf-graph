@@ -36,19 +36,40 @@
         "barrelImportPackages": ["effect"],
         "includeSuggestionsInTsc": true,
         "ignoreEffectWarningsInTscExitCode": true,
-        "ignoreEffectSuggestionsInTscExitCode": true,
         "diagnosticSeverity": {
           "cryptoRandomUUIDInEffect": "suggestion",
           "globalDateInEffect": "suggestion",
           "layerMergeAllWithDependencies": "warning",
-          "missingEffectServiceDependency": "warning",
-          "effectTryWithoutCatch": "error",
-          "floatingEffect": "error",
-          "missingEffectContext": "error",
-          "missingEffectError": "error",
-          "missingLayerContext": "error",
-          "missingReturnYieldStar": "error"
-        }
+          "missingEffectServiceDependency": "warning"
+        },
+        "allowedUnstableApis": [
+          "@effect/platform-bun/BunRuntime",
+          "@effect/platform-bun/BunServices",
+          "@effect/platform-node-shared/NodeSink",
+          "@effect/platform-node-shared/NodeStream",
+          "@effect/platform-node/NodeServices",
+          "@effect/vitest",
+          "effect/FileSystem",
+          "effect/Graph",
+          "effect/Path",
+          "effect/PlatformError",
+          "effect/Stdio",
+          "effect/Terminal",
+          "effect/cli/Argument",
+          "effect/cli/Command",
+          "effect/cli/Flag",
+          "effect/cli/Prompt",
+          "effect/crypto/Digest",
+          "effect/crypto/SecureRandom",
+          "effect/devtools/DevTools",
+          "effect/http/FetchHttpClient",
+          "effect/http/HttpClient",
+          "effect/http/HttpClientError",
+          "effect/http/HttpClientRequest",
+          "effect/http/HttpClientResponse",
+          "effect/process/ChildProcess",
+          "effect/process/ChildProcessSpawner"
+        ]
       }
     ]
   },

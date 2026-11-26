@@ -16,7 +16,7 @@
     "test": "vp run -r test",
     "changeset": "changeset",
     "changeset:status": "changeset status",
-    "prepare": "effect-tsgo patch --typescript"
+    "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

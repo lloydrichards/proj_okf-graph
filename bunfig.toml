@@ -1,0 +1,3 @@
+[install]
+# Keep Effect's declarations resolvable across workspace packages in TSGo.
+linker = "hoisted"
