@@ -1,0 +1,10 @@
+{
+  "extends": "@repo/config-typescript/base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "skipLibCheck": true
+  },
+  "include": ["src", "test", "scratchpad.ts"]
+}

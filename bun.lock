@@ -50,6 +50,18 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/graph-goodies": {
+      "name": "@repo/graph-goodies",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.1.4",
+      },
+      "devDependencies": {
+        "@repo/config-typescript": "workspace:*",
+        "typescript": "7.0.2",
+        "vitest": "^5.1.0",
+      },
+    },
     "packages/okf": {
       "name": "@repo/okf",
       "version": "0.0.0",
@@ -273,6 +285,8 @@
     "@repo/config-typescript": ["@repo/config-typescript@workspace:packages/config-typescript"],
 
     "@repo/domain": ["@repo/domain@workspace:packages/domain"],
+
+    "@repo/graph-goodies": ["@repo/graph-goodies@workspace:packages/graph-goodies"],
 
     "@repo/okf": ["@repo/okf@workspace:packages/okf"],
 
