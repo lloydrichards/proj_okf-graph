@@ -1,5 +1,12 @@
 {
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+  "plugins": ["effecttsgo", "oxc", "typescript", "unicorn"],
+  "options": {
+    "typeAware": true,
+    "typeCheck": true
+  },
   "rules": {
+    "effecttsgo/effect-try-without-catch": "error",
     "unicorn/prefer-array-flat-map": "error"
   }
 }
