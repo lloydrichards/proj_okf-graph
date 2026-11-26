@@ -1,5 +1,9 @@
 /**
- * Ranks Effect Graph nodes by the long-run visit frequency of a random walk.
+ * Measure how individual nodes contribute to the structure of an Effect graph.
+ *
+ * PageRank estimates how often a random walk visits each node in an Effect graph.
+ * Use uniform restarts to rank the whole graph or supply weights to center
+ * the walk on selected nodes.
  *
  * @module
  */
@@ -20,13 +24,17 @@ export type PageRankOptions = {
 
 /** Reports the estimated visit probabilities and the final iteration status. */
 export type PageRankResult = {
+  /** Estimated visit probability by node index. The scores sum to one within floating-point precision for a non-empty graph. */
   readonly scores: ReadonlyMap<Graph.NodeIndex, number>;
+  /** Number of power iterations performed. */
   readonly iterations: number;
+  /** Sum of absolute score changes in the final iteration, or zero for an empty graph. */
   readonly residual: number;
+  /** Whether the final residual is at or below the tolerance. */
   readonly converged: boolean;
 };
 
-/** A PageRank option is outside its accepted range or references a missing node. */
+/** Raised by {@link pageRank} when an option is invalid. The `option` field identifies the rejected setting. */
 export class InvalidPageRankOptions extends Schema.TaggedError<
   InvalidPageRankOptions,
   { readonly brand: unique symbol }
@@ -36,19 +44,39 @@ export class InvalidPageRankOptions extends Schema.TaggedError<
 }) {}
 
 /**
- * Runs PageRank on a directed or undirected Effect graph. Each edge contributes
- * one possible step, including parallel edges and self-loops. Undirected edges
- * allow travel both ways, with a self-loop counted once. Edge payloads are ignored.
+ * Estimates the long-run visit probability of each node in a directed or
+ * undirected graph.
  *
- * At a dead end the walk restarts from the same distribution used for random
- * restarts. Supply finite non-negative weights with at least one positive
- * weight to personalize that distribution. Scores are keyed by graph node
- * index. An empty graph returns an empty result with zero iterations when
- * restart weights are omitted.
+ * **Details**
  *
- * The final residual is the sum of absolute score changes in the last step.
- * If the iteration limit is reached before the residual meets the tolerance,
- * the scores still describe the final iterate and `converged` is false.
+ * Each edge contributes one possible step. Parallel edges count separately.
+ * Undirected edges allow travel both ways, with a self-loop counted once.
+ * The walk ignores edge payloads.
+ *
+ * The walk uses the same restart distribution at dead ends and for random
+ * restarts. Supply finite, non-negative weights for existing nodes, with at
+ * least one positive weight, to personalize that distribution. An empty graph
+ * returns an empty ranking when you omit restart weights. Invalid options fail
+ * with {@link InvalidPageRankOptions}.
+ *
+ * If the iteration limit is reached before convergence, the result contains
+ * the last estimate with `converged` set to `false`.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as Centrality from "@repo/graph-goodies/Centrality";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.directed<string, undefined>((graph) => {
+ *   const start = Graph.addNode(graph, "Start");
+ *   const guide = Graph.addNode(graph, "Guide");
+ *   Graph.addEdge(graph, start, guide, undefined);
+ * });
+ *
+ * const result = Effect.runSync(Centrality.pageRank(graph, { alpha: 0.5 }));
+ * // Scores are approximately 0.4 for Start and 0.6 for Guide.
+ * ```
  */
 export const pageRank = Effect.fnUntraced(function* <
   N,

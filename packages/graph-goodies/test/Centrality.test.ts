@@ -1,6 +1,6 @@
 import { Effect, Graph } from "effect";
 import { describe, expect, it } from "vitest";
-import * as PageRank from "@repo/graph-goodies/PageRank";
+import * as Centrality from "@repo/graph-goodies/Centrality";
 
 const directed = Graph.directed<string, undefined>((graph) => {
   const a = Graph.addNode(graph, "a");
@@ -10,7 +10,9 @@ const directed = Graph.directed<string, undefined>((graph) => {
 
 describe("pageRank", () => {
   it("ranks a directed edge and redistributes dead-end mass", () => {
-    const result = Effect.runSync(PageRank.pageRank(directed, { alpha: 0.5 }));
+    const result = Effect.runSync(
+      Centrality.pageRank(directed, { alpha: 0.5 }),
+    );
     expect(result.converged).toBe(true);
     expect(result.scores.get(0)).toBeCloseTo(0.4, 5);
     expect(result.scores.get(1)).toBeCloseTo(0.6, 5);
@@ -19,7 +21,7 @@ describe("pageRank", () => {
 
   it("uses the restart distribution at dead ends and normalizes large weights", () => {
     const seeded = Effect.runSync(
-      PageRank.pageRank(directed, {
+      Centrality.pageRank(directed, {
         alpha: 0.5,
         restart: new Map([[0, 1]]),
       }),
@@ -27,7 +29,7 @@ describe("pageRank", () => {
     expect(seeded.scores.get(0)).toBeCloseTo(2 / 3, 5);
     expect(seeded.scores.get(1)).toBeCloseTo(1 / 3, 5);
     const weighted = Effect.runSync(
-      PageRank.pageRank(directed, {
+      Centrality.pageRank(directed, {
         alpha: 0,
         restart: new Map([
           [0, Number.MAX_VALUE],
@@ -48,7 +50,7 @@ describe("pageRank", () => {
       Graph.addEdge(mutable, a, b, 1);
     });
     const result = Effect.runSync(
-      PageRank.pageRank(graph, {
+      Centrality.pageRank(graph, {
         alpha: 0.5,
         maxIterations: 1,
         restart: new Map([[0, 1]]),
@@ -69,7 +71,7 @@ describe("pageRank", () => {
       Graph.addEdge(mutable, a, b, undefined);
     });
     const result = Effect.runSync(
-      PageRank.pageRank(graph, {
+      Centrality.pageRank(graph, {
         alpha: 0.5,
         restart: new Map([[2, 1]]),
       }),
@@ -87,7 +89,7 @@ describe("pageRank", () => {
       Graph.addEdge(mutable, a, b, undefined);
     });
     const result = Effect.runSync(
-      PageRank.pageRank(graph, {
+      Centrality.pageRank(graph, {
         alpha: 0.5,
         maxIterations: 1,
         restart: new Map([[0, 1]]),
@@ -98,7 +100,7 @@ describe("pageRank", () => {
   });
 
   it("returns an empty ranking for an empty graph", () => {
-    expect(Effect.runSync(PageRank.pageRank(Graph.directed()))).toEqual({
+    expect(Effect.runSync(Centrality.pageRank(Graph.directed()))).toEqual({
       scores: new Map(),
       iterations: 0,
       residual: 0,
@@ -113,11 +115,11 @@ describe("pageRank", () => {
     ["restart", { restart: new Map([[7, 1]]) }],
     ["restart", { restart: new Map([[0, -1]]) }],
     ["restart", { restart: new Map([[0, 0]]) }],
-  ] satisfies ReadonlyArray<readonly [string, PageRank.PageRankOptions]>)(
+  ] satisfies ReadonlyArray<readonly [string, Centrality.PageRankOptions]>)(
     "rejects an invalid %s option",
     (option, options) => {
       expect(
-        Effect.runSync(Effect.flip(PageRank.pageRank(directed, options))),
+        Effect.runSync(Effect.flip(Centrality.pageRank(directed, options))),
       ).toMatchObject({ _tag: "InvalidPageRankOptions", option });
     },
   );
