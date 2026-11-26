@@ -2,7 +2,7 @@
 
 Graph Goodies extends Effect Graph with analyses that callers can use on any graph. The public modules should name the question they answer. Their inputs and results use Effect Graph node and edge indices so callers can work directly with the original graph.
 
-## Proposed module boundaries
+## Module boundaries
 
 | Subpath          | Question                                              | Candidate operations                                                                                                                                   |
 | ---------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -29,6 +29,18 @@ For example, an OKF caller can turn a tag into restart weights and use PageRank 
 - Open every public module with its purpose and give each export a summary. Add **Details** for behavior the type cannot express and **Example** for a real call. Follow TaskPlan’s section style and omit Effect’s release and navigation tags.
 - Test through the public subpath with small graphs whose results can be derived by hand. Keep scratchpads focused on one comparison a reader can run.
 
-## First public module
+## First operations
 
-`Centrality.pageRank` is the first public operation. Global and personalized PageRank share an operation because the restart distribution controls both. The other module boundaries are proposals. Dominators are a natural next design exercise if a maintainer needs to locate a required page. Minimum cuts answer a separate follow-up about how many links would have to disappear. Each subsequent module should start with a caller, a concrete input graph, and an expected result before its export is added.
+| Operation                         | Caller question                                           | Small example                                                              |
+| --------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `Centrality.pageRank`             | Where does a walk spend time?                             | A one-way link gives the destination more visits than the start.           |
+| `Connectivity.dominators`         | Which nodes must a reader pass through?                   | A single junction before a fork dominates both branches.                   |
+| `Paths.findTypedPath`             | Can I follow this exact sequence of relationships?        | A diagnosis edge followed by a treatment edge reaches the requested guide. |
+| `LinkPrediction.twoHopCandidates` | Which missing outgoing links have nearby evidence?        | Two distinct intermediate pages point to the same unlinked page.           |
+| `Structure.transitiveReduction`   | Which shortcuts can I remove without losing reachability? | In a DAG with A → B → C and A → C, keep the two edges through B.           |
+
+## Follow-up candidates
+
+- Try minimum edge cuts alongside dominators. A graph can have several independent paths and no required intermediate page. A cut can still show how many authored links would have to disappear to break access.
+- Compare two-hop counts with a score that discounts intermediates linking to many destinations. Keep the witnesses in the result so a reviewer can trace each suggestion.
+- Explore a Steiner tree for connecting three or more pages and Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods. Each needs a sample graph that shows what the result adds to the operations above.
