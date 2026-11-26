@@ -1,4 +1,4 @@
-import { Console, Effect, FileSystem, Option, Path } from "effect";
+import { Console, Effect, FileSystem, Option, Path, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 
 const skillNames = ["okf", "okf-validate", "okf-dream"] as const;
@@ -48,6 +48,44 @@ const readSkill = Command.make("read", { name }, ({ name }) =>
   ),
 );
 
+class SkillWriteRejected extends Schema.TaggedError<SkillWriteRejected>()(
+  "SkillWriteRejected",
+  {
+    path: Schema.String,
+    reason: Schema.Literals(["Symlink", "NotDirectory", "NotFile", "Exists"]),
+  },
+) {
+  override get message() {
+    switch (this.reason) {
+      case "Symlink":
+        return `Skill path contains a symlink: ${this.path}`;
+      case "NotDirectory":
+        return `Not a directory: ${this.path}`;
+      case "NotFile":
+        return `Not a regular file: ${this.path}`;
+      case "Exists":
+        return `Skill already exists: ${this.path}. Use --force to replace it.`;
+    }
+  }
+}
+
+const inspectDestination = Effect.fnUntraced(function* (
+  fs: FileSystem.FileSystem,
+  path: string,
+) {
+  const entry = yield* fs.lstat(path).pipe(
+    Effect.map(Option.some),
+    Effect.catchReason("PlatformError", "NotFound", () =>
+      Effect.succeed(Option.none()),
+    ),
+  );
+  if (Option.isSome(entry) && entry.value.type === "SymbolicLink") {
+    return yield* new SkillWriteRejected({ path, reason: "Symlink" });
+  }
+
+  return entry;
+});
+
 const writeSkill = Command.make(
   "write",
   { name, target, force },
@@ -60,9 +98,10 @@ const writeSkill = Command.make(
       );
       const repositoryInfo = yield* fs.stat(repository);
       if (repositoryInfo.type !== "Directory") {
-        yield* Console.error(`Not a directory: ${repository}`);
-        process.exitCode = 1;
-        return;
+        return yield* new SkillWriteRejected({
+          path: repository,
+          reason: "NotDirectory",
+        });
       }
       const skillsDir = path.join(repository, ".agents", "skills");
       const destinations = selectedSkills(name).map((skillName) => ({
@@ -76,38 +115,27 @@ const writeSkill = Command.make(
         ...destinations.map(({ directory }) => directory),
       ];
 
-      for (const installPath of [
-        ...directories,
-        ...destinations.map(({ file }) => file),
-      ]) {
-        if (
-          Option.isSome(yield* fs.readLink(installPath).pipe(Effect.option))
-        ) {
-          yield* Console.error(`Skill path contains a symlink: ${installPath}`);
-          process.exitCode = 1;
-          return;
-        }
-      }
       for (const directory of directories) {
-        if (
-          (yield* fs.exists(directory)) &&
-          (yield* fs.stat(directory)).type !== "Directory"
-        ) {
-          yield* Console.error(`Not a directory: ${directory}`);
-          process.exitCode = 1;
-          return;
+        const entry = yield* inspectDestination(fs, directory);
+        if (Option.isSome(entry) && entry.value.type !== "Directory") {
+          return yield* new SkillWriteRejected({
+            path: directory,
+            reason: "NotDirectory",
+          });
         }
       }
-      for (const { file } of destinations) {
-        if (!(yield* fs.exists(file))) continue;
-        if (!force || (yield* fs.stat(file)).type !== "File") {
-          yield* Console.error(
-            force
-              ? `Not a regular file: ${file}`
-              : `Skill already exists: ${file}. Use --force to replace it.`,
-          );
-          process.exitCode = 1;
-          return;
+      const files = yield* Effect.forEach(destinations, ({ file }) =>
+        inspectDestination(fs, file).pipe(
+          Effect.map((entry) => ({ file, entry })),
+        ),
+      );
+      for (const { file, entry } of files) {
+        if (Option.isNone(entry)) continue;
+        if (!force || entry.value.type !== "File") {
+          return yield* new SkillWriteRejected({
+            path: file,
+            reason: force ? "NotFile" : "Exists",
+          });
         }
       }
 
@@ -123,7 +151,14 @@ const writeSkill = Command.make(
         yield* fs.writeFileString(file, markdown, { flag: force ? "w" : "wx" });
         yield* Console.log(`Installed OKF skill: ${file}`);
       }
-    }),
+    }).pipe(
+      Effect.catchTag("SkillWriteRejected", (error) =>
+        Effect.gen(function* () {
+          yield* Console.error(error.message);
+          process.exitCode = 1;
+        }),
+      ),
+    ),
 ).pipe(
   Command.withDescription(
     "Install all bundled skills or one named skill in a repository",
