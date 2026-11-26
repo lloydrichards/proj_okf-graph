@@ -40,7 +40,11 @@ For example, an OKF caller can turn a tag into restart weights and use PageRank 
 | `LinkPrediction.twoHopCandidates` | Which missing outgoing links have nearby evidence?        | Two distinct intermediate pages point to the same unlinked page.                                         |
 | `Structure.transitiveReduction`   | Which shortcuts can I remove without losing reachability? | In a DAG with A → B → C and A → C, keep the two edges through B.                                         |
 
+Use `LinkPrediction.rankTwoHopCandidates` to compare witness counts with
+degree-discounted support. A witness with two distinct outgoing neighbors
+contributes half as much as one with a single neighbor. Both APIs return the
+witness indices so reviewers can trace the suggestions.
+
 ## Follow-up candidates
 
-- Compare two-hop counts with a score that discounts intermediates linking to many destinations. Keep the witnesses in the result so a reviewer can trace each suggestion.
 - Explore a Steiner tree for connecting three or more pages and Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods. Each needs a sample graph that shows what the result adds to the operations above.

@@ -13,7 +13,13 @@ export type TwoHopCandidate = {
   readonly intermediates: ReadonlyArray<Graph.NodeIndex>;
 };
 
-/** Raised when the source index passed to {@link twoHopCandidates} is absent. */
+/** A two-hop candidate with its degree-discounted support score. */
+export type RankedTwoHopCandidate = TwoHopCandidate & {
+  /** Sum of inverse out-degrees across the distinct intermediate nodes. */
+  readonly score: number;
+};
+
+/** Raised when a two-hop query names a source absent from the graph. */
 export class UnknownLinkPredictionSource extends Schema.TaggedError<
   UnknownLinkPredictionSource,
   { readonly brand: unique symbol }
@@ -31,6 +37,36 @@ const candidatesBySupport = Order.combine(
     (candidate: TwoHopCandidate) => candidate.target,
   ),
 );
+
+const collectTwoHopEvidence = <N, E>(
+  graph: Graph.DirectedGraph<N, E>,
+  source: Graph.NodeIndex,
+) => {
+  const direct = new Set(Graph.successors(graph, source));
+  const witnesses = new Map<Graph.NodeIndex, Array<Graph.NodeIndex>>();
+  const degrees = new Map<Graph.NodeIndex, number>();
+  for (const intermediate of direct) {
+    const targets = Graph.successors(graph, intermediate);
+    degrees.set(intermediate, targets.length);
+    for (const target of targets) {
+      if (target === source || direct.has(target)) continue;
+
+      const existing = witnesses.get(target);
+      if (existing === undefined) {
+        witnesses.set(target, [intermediate]);
+      } else {
+        existing.push(intermediate);
+      }
+    }
+  }
+
+  const candidates = Array.from(witnesses, ([target, intermediates]) => ({
+    target,
+    intermediates: intermediates.sort(Order.Number),
+  }));
+
+  return { candidates, degrees };
+};
 
 /**
  * Finds missing outgoing edges supported by directed two-step routes from
@@ -74,23 +110,54 @@ export const twoHopCandidates = Effect.fnUntraced(function* <N, E>(
     return yield* new UnknownLinkPredictionSource({ source });
   }
 
-  const direct = new Set(Graph.successors(graph, source));
-  const witnesses = new Map<Graph.NodeIndex, Array<Graph.NodeIndex>>();
-  for (const intermediate of direct) {
-    for (const target of Graph.successors(graph, intermediate)) {
-      if (target === source || direct.has(target)) continue;
+  return collectTwoHopEvidence(graph, source).candidates.sort(
+    candidatesBySupport,
+  );
+});
 
-      const existing = witnesses.get(target);
-      if (existing === undefined) {
-        witnesses.set(target, [intermediate]);
-      } else {
-        existing.push(intermediate);
-      }
-    }
+const candidatesByScore = Order.combine(
+  Order.flip(
+    Order.mapInput(
+      Order.Number,
+      (candidate: RankedTwoHopCandidate) => candidate.score,
+    ),
+  ),
+  Order.mapInput(
+    Order.Number,
+    (candidate: RankedTwoHopCandidate) => candidate.target,
+  ),
+);
+
+/**
+ * Ranks missing outgoing edges by giving more weight to focused intermediates.
+ *
+ * **Details**
+ *
+ * Uses the same candidates and witnesses as {@link twoHopCandidates}. Each
+ * witness contributes one divided by its number of distinct successors,
+ * including successors that are ineligible as candidates. Parallel links
+ * count once towards that degree. Results sort by decreasing score, then
+ * ascending target index for equal scores.
+ */
+export const rankTwoHopCandidates = Effect.fnUntraced(function* <N, E>(
+  graph: Graph.DirectedGraph<N, E>,
+  source: Graph.NodeIndex,
+): Effect.fn.Return<
+  ReadonlyArray<RankedTwoHopCandidate>,
+  UnknownLinkPredictionSource
+> {
+  if (!Graph.hasNode(graph, source)) {
+    return yield* new UnknownLinkPredictionSource({ source });
   }
 
-  return Array.from(witnesses, ([target, intermediates]) => ({
-    target,
-    intermediates: intermediates.sort(Order.Number),
-  })).sort(candidatesBySupport);
+  const { candidates, degrees } = collectTwoHopEvidence(graph, source);
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      score: candidate.intermediates.reduce(
+        (score, intermediate) => score + 1 / degrees.get(intermediate)!,
+        0,
+      ),
+    }))
+    .sort(candidatesByScore);
 });
