@@ -21,7 +21,8 @@ export class CyclicGraphError extends Schema.TaggedError<
  *
  * All original nodes, including isolated nodes, remain part of the reduction.
  * Keep an edge if its target cannot be reached by starting with a different
- * neighbor. Parallel edges share one representative, the lowest edge index.
+ * neighbor. When a connection survives, keep its lowest edge index among
+ * parallel edges.
  * The input graph stays intact. Edge payloads do not affect reachability.
  *
  * **Example**
