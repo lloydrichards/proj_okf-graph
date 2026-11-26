@@ -220,3 +220,22 @@ it("runs wizard-style arguments and accepts flag-like source and target IDs", ()
     });
   });
 });
+
+it.each([
+  [["--link-target", "goal", "--without-link", "left"]],
+  [["--link-target=goal", "--without-link", "left"]],
+  [["--without-link", "left", "--link-target", "goal"]],
+])("accepts explicit link flags before positional arguments (%j)", (flags) => {
+  withBundle(
+    (invoke) => {
+      const result = invoke("start", "goal", "--json");
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({
+        before: { path: ["start", "left", "goal"] },
+        after: { path: ["start", "right", "goal"] },
+        removedLinkCount: 2,
+      });
+    },
+    ["graph", "impact", ...flags],
+  );
+});

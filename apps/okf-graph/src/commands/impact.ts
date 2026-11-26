@@ -21,6 +21,19 @@ export function impactArgs(args: ReadonlyArray<string>): ReadonlyArray<string> {
   const impactIndex = skipLogLevel(args, graphIndex + 1);
   if (args[graphIndex] !== "graph" || args[impactIndex] !== "impact")
     return args;
+  const delimiter = args.indexOf("--", impactIndex + 1);
+  const flags = args.slice(
+    impactIndex + 1,
+    delimiter < 0 ? undefined : delimiter,
+  );
+  if (
+    flags.some(
+      (arg) => arg === "--link-target" || arg.startsWith("--link-target="),
+    )
+  ) {
+    return args;
+  }
+
   const normalized = args.slice(0, impactIndex + 1);
   for (let i = impactIndex + 1; i < args.length; i++) {
     const arg = args[i]!;
