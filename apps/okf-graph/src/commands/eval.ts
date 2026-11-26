@@ -59,7 +59,7 @@ export const evaluate = Command.make(
           ),
         );
       }
-    }).pipe(Effect.provide(EvaluationService.Live)),
+    }).pipe(Effect.provide(EvaluationService.layer)),
 ).pipe(
   Command.withDescription(
     "Explore an OKF bundle's structural properties [experimental]",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { MarkdownService } from "./MarkdownService";
+import { MarkdownService } from "@repo/okf";
 
 describe("MarkdownService", () => {
   it.effect("should preserve YAML frontmatter when parsing a document", () =>

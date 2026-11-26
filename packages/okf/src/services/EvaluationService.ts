@@ -41,7 +41,7 @@ export class EvaluationService extends Context.Service<
     return { evaluate } satisfies EvaluationServiceShape;
   });
 
-  static readonly Live = Layer.effect(this, this.make).pipe(
+  static readonly layer = Layer.effect(this, this.make).pipe(
     Layer.satisfiesServicesType<OkfService>(),
   );
 }

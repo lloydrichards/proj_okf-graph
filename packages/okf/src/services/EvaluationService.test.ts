@@ -2,8 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { EvaluationReport } from "@repo/domain/Evaluation";
 import { type Bundle, graphFromBundle } from "@repo/domain/Okf";
 import { Effect, Layer, Schema } from "effect";
-import { EvaluationService } from "./EvaluationService";
-import { BundleNotFound, OkfService } from "./OkfService";
+import { BundleNotFound, EvaluationService, OkfService } from "@repo/okf";
 
 const bundle: Bundle = {
   root: "/test",
@@ -35,7 +34,7 @@ type OkfServiceShape = Effect.Success<typeof OkfService.make>;
 type OkfMakeResult = Effect.Success<ReturnType<OkfServiceShape["make"]>>;
 
 const makeEvaluationLayer = (make: OkfServiceShape["make"]) =>
-  EvaluationService.Live.pipe(
+  EvaluationService.layer.pipe(
     Layer.provide(Layer.mock(OkfService, { make })),
     Layer.satisfiesServicesType<never>(),
   );
@@ -63,6 +62,43 @@ describe("EvaluationService", () => {
       }).pipe(Effect.provide(evaluationLayer));
     },
   );
+
+  it.effect.each([
+    {
+      source: "generated.at",
+      frontmatter: { type: "Note" },
+      metadata: {
+        generated: { by: "agent/1.0", at: "2026-08-01T00:00:00Z" },
+      },
+    },
+    {
+      source: "legacy timestamp",
+      frontmatter: { type: "Note", timestamp: "2026-08-01T00:00:00Z" },
+      metadata: {},
+    },
+  ])("counts timestamp coverage from $source", ({ frontmatter, metadata }) => {
+    const datedBundle: Bundle = {
+      ...bundle,
+      concepts: bundle.concepts.map((concept) => ({
+        ...concept,
+        frontmatter,
+        metadata: { ...concept.metadata, ...metadata },
+      })),
+    };
+    const evaluationLayer = makeEvaluationLayer(() =>
+      Effect.succeed({
+        bundle: datedBundle,
+        graph: graphFromBundle(datedBundle),
+      } as OkfMakeResult),
+    );
+
+    return Effect.gen(function* () {
+      const service = yield* EvaluationService;
+      const report = yield* service.evaluate("./knowledge");
+
+      expect(report.bundle.metrics.metadataCoverage.timestamp).toBe(1);
+    }).pipe(Effect.provide(evaluationLayer));
+  });
 
   it.effect(
     "should preserve the source failure when bundle resolution fails",
