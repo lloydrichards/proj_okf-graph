@@ -81,13 +81,18 @@ export const dominators = Effect.fnUntraced(function* <N, E>(
     changed = false;
     for (const { node, predecessors } of remaining) {
       const previous = result.get(node)!;
+      const smallest = predecessors.reduce((seed, parent) => {
+        const candidates = result.get(parent)!;
+        return candidates.size < seed.size ? candidates : seed;
+      }, previous);
       const next = new Set(
-        Array.from(previous).filter(
+        Array.from(smallest).filter(
           (candidate) =>
-            candidate === node ||
+            previous.has(candidate) &&
             predecessors.every((parent) => result.get(parent)!.has(candidate)),
         ),
       );
+      next.add(node);
       if (next.size < previous.size) {
         result.set(node, next);
         changed = true;
