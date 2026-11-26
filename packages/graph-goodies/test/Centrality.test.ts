@@ -112,8 +112,11 @@ describe("pageRank", () => {
     ["alpha", { alpha: 1 }],
     ["tolerance", { tolerance: Number.NaN }],
     ["maxIterations", { maxIterations: 1.5 }],
+    ["maxIterations", { maxIterations: Number.MAX_SAFE_INTEGER + 1 }],
     ["restart", { restart: new Map([[7, 1]]) }],
     ["restart", { restart: new Map([[0, -1]]) }],
+    ["restart", { restart: new Map([[0, Number.POSITIVE_INFINITY]]) }],
+    ["restart", { restart: new Map() }],
     ["restart", { restart: new Map([[0, 0]]) }],
   ] satisfies ReadonlyArray<readonly [string, Centrality.PageRankOptions]>)(
     "rejects an invalid %s option",
