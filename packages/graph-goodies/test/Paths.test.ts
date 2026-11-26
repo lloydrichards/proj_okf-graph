@@ -129,3 +129,81 @@ describe("findTypedPath", () => {
     }),
   );
 });
+
+describe("approximateSteinerTree", () => {
+  it.effect(
+    "connects three terminals through a shared junction and keeps original indices",
+    () =>
+      Effect.gen(function* () {
+        const mutable = Graph.beginMutation(
+          Graph.undirected<string, undefined>(),
+        );
+        const removed = Graph.addNode(mutable, "removed");
+        const first = Graph.addNode(mutable, "first");
+        const junction = Graph.addNode(mutable, "junction");
+        const second = Graph.addNode(mutable, "second");
+        const third = Graph.addNode(mutable, "third");
+        const spur = Graph.addNode(mutable, "spur");
+        Graph.removeNode(mutable, removed);
+        Graph.addEdge(mutable, junction, spur, undefined);
+        const firstSpoke = Graph.addEdge(mutable, junction, first, undefined);
+        const secondSpoke = Graph.addEdge(mutable, second, junction, undefined);
+        Graph.addEdge(mutable, junction, second, undefined);
+        const thirdSpoke = Graph.addEdge(mutable, junction, third, undefined);
+
+        const result = yield* Paths.approximateSteinerTree(
+          Graph.endMutation(mutable),
+          [third, second, first, third],
+        );
+
+        expect(result).toEqual(
+          Option.some({
+            nodes: [first, junction, second, third],
+            edges: [firstSpoke, secondSpoke, thirdSpoke],
+          }),
+        );
+      }),
+  );
+
+  it.effect("returns no tree when known terminals are disconnected", () =>
+    Effect.gen(function* () {
+      const graph = Graph.undirected<string, undefined>((graph) => {
+        Graph.addNode(graph, "first");
+        Graph.addNode(graph, "second");
+      });
+
+      expect(yield* Paths.approximateSteinerTree(graph, [0, 1])).toEqual(
+        Option.none(),
+      );
+    }),
+  );
+
+  it.effect(
+    "handles empty and singleton selections and identifies unknown terminals",
+    () =>
+      Effect.gen(function* () {
+        const graph = Graph.undirected<string, undefined>((graph) => {
+          Graph.addNode(graph, "only");
+        });
+
+        expect(yield* Paths.approximateSteinerTree(graph, [])).toEqual(
+          Option.some({
+            nodes: [],
+            edges: [],
+          }),
+        );
+        expect(yield* Paths.approximateSteinerTree(graph, [0, 0])).toEqual(
+          Option.some({
+            nodes: [0],
+            edges: [],
+          }),
+        );
+        expect(
+          yield* Effect.flip(Paths.approximateSteinerTree(graph, [0, 7])),
+        ).toMatchObject({
+          _tag: "UnknownSteinerTerminal",
+          terminal: 7,
+        });
+      }),
+  );
+});
