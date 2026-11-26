@@ -34,6 +34,7 @@ const runPath = (bundle: string, from = "start", to = "finish") => {
 it("breaks shortest-path ties by concept ID when authored links are reversed", () => {
   const bundle = mkdtempSync(join(tmpdir(), "okf-path-ties-"));
   try {
+    writeNote(bundle, "aardvark", "[beta](/beta.md)");
     writeNote(bundle, "alpha", "[finish](/finish.md)");
     writeNote(bundle, "beta", "[finish](/finish.md)");
     writeNote(bundle, "finish");
@@ -43,10 +44,18 @@ it("breaks shortest-path ties by concept ID when authored links are reversed", (
       path: ["start", "alpha", "finish"],
     };
 
-    writeNote(bundle, "start", "[alpha](/alpha.md) [beta](/beta.md)");
+    writeNote(
+      bundle,
+      "start",
+      "[aardvark](/aardvark.md) [alpha](/alpha.md) [beta](/beta.md)",
+    );
     expect(runPath(bundle)).toEqual(expected);
 
-    writeNote(bundle, "start", "[beta](/beta.md) [alpha](/alpha.md)");
+    writeNote(
+      bundle,
+      "start",
+      "[aardvark](/aardvark.md) [beta](/beta.md) [alpha](/alpha.md)",
+    );
     expect(runPath(bundle)).toEqual(expected);
   } finally {
     rmSync(bundle, { recursive: true, force: true });
