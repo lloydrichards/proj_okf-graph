@@ -68,6 +68,11 @@ export const transitiveReduction = Effect.fnUntraced(function* <N, E>(
 
   const retained = new Set<Graph.EdgeIndex>();
   for (const neighbors of outgoing.values()) {
+    if (neighbors.size === 1) {
+      for (const edge of neighbors.values()) retained.add(edge);
+      continue;
+    }
+
     const seen = new Set<Graph.NodeIndex>();
     const queue = Array.from(neighbors.keys()).flatMap((node) =>
       Array.from(outgoing.get(node)?.keys() ?? []),
