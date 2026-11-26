@@ -241,7 +241,7 @@ export class OkfService extends Context.Service<OkfService>()(
         // 4. Parse reserved files
         const reservedEntries = yield* Effect.forEach(
           reservedFiles,
-          Effect.fn(function* (rel) {
+          Effect.fnUntraced(function* (rel) {
             const content = yield* readBundleFile(rel);
             return { rel, content, basename: path.basename(rel) };
           }),
@@ -403,10 +403,12 @@ export class OkfService extends Context.Service<OkfService>()(
       });
 
       return {
-        make: Effect.fn("make")(function* (bundlePath: string) {
+        make: Effect.fn("OkfService.make")(function* (bundlePath: string) {
           return yield* loadBundleGraph(bundlePath);
         }),
-        validate: Effect.fn("validate")(function* (bundlePath: string) {
+        validate: Effect.fn("OkfService.validate")(function* (
+          bundlePath: string,
+        ) {
           const { bundle, graph } = yield* loadBundleGraph(bundlePath);
 
           // Broken links are warnings per OKF spec §5.3:
@@ -429,7 +431,7 @@ export class OkfService extends Context.Service<OkfService>()(
           ]);
           const indexLinkIssues = yield* Effect.forEach(
             bundle.indexFiles,
-            Effect.fn(function* (index) {
+            Effect.fnUntraced(function* (index) {
               const parsed = yield* md.parse(index.content);
               const sourceId = pipe(
                 index.path,
@@ -468,7 +470,7 @@ export class OkfService extends Context.Service<OkfService>()(
 ) {
   static readonly layer = Layer.effect(this, this.make).pipe(
     Layer.provide(MarkdownService.layer),
-    Layer.provideMerge(SourceResolver.layer),
+    Layer.provide(SourceResolver.layer),
     Layer.satisfiesServicesType(),
   );
 }

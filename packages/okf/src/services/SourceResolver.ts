@@ -273,7 +273,6 @@ export class SourceResolver extends Context.Service<SourceResolver>()(
   },
 ) {
   static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provideMerge(GitService.layer),
-    Layer.provideMerge(SourceResolverConfig.layer),
+    Layer.provide([GitService.layer, SourceResolverConfig.layer]),
   );
 }

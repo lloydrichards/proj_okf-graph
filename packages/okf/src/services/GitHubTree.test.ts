@@ -1,11 +1,10 @@
-import { GitHubTreeDefault } from "./GitHubTreeLive";
+import { GitHubTree, GitHubTreeDefault } from "@repo/okf";
 import { buffer } from "node:stream/consumers";
 import { gzipSync } from "node:zlib";
 import { Deferred, Effect, Fiber } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { pack } from "tar-stream";
-import { expect, it } from "vitest";
-import { GitHubTree } from "./GitHubTree";
+import { expect, it } from "@effect/vitest";
 
 it("loads each new head of a slash-containing GitHub branch into its own bundle", async () => {
   const url = "https://github.com/example/notes/tree/feature/plants/guides";
