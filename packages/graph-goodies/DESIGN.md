@@ -45,6 +45,12 @@ degree-discounted support. A witness with two distinct outgoing neighbors
 contributes half as much as one with a single neighbor. Both APIs return the
 witness indices so reviewers can trace the suggestions.
 
+Use `Paths.approximateSteinerTree` to connect selected nodes in an undirected
+graph. Each edge has unit cost. The approximation grows a tree by attaching
+the closest remaining terminal, returning original node and edge indices.
+Three selected nodes can share a junction outside the selection. [Mehlhorn's
+comparison of Steiner tree algorithms](https://people.mpi-inf.mpg.de/~mehlhorn/ftp/SteinerTrees.pdf)
+
 ## Follow-up candidates
 
-- Explore a Steiner tree for connecting three or more pages and Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods. Each needs a sample graph that shows what the result adds to the operations above.
+- Explore Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods.

@@ -1,5 +1,5 @@
 /**
- * Finds routes through an Effect graph under constraints supplied by the caller.
+ * Finds routes and connecting trees in an Effect graph.
  *
  * @module
  */
@@ -135,4 +135,138 @@ export const findTypedPath = Effect.fnUntraced(function* <N, E, L>(
     Option.fromUndefinedOr(frontier.get(query.target)),
     toTypedPath,
   );
+});
+
+/** A tree represented by its original node and edge indices in ascending order. */
+export type SteinerTree = {
+  readonly nodes: ReadonlyArray<Graph.NodeIndex>;
+  readonly edges: ReadonlyArray<Graph.EdgeIndex>;
+};
+
+/** Raised when a Steiner tree query names a node absent from the graph. */
+export class UnknownSteinerTerminal extends Schema.TaggedError<
+  UnknownSteinerTerminal,
+  { readonly brand: unique symbol }
+>()("UnknownSteinerTerminal", {
+  terminal: Schema.Number,
+}) {}
+
+type Neighbor = {
+  readonly node: Graph.NodeIndex;
+  readonly edge: Graph.EdgeIndex;
+};
+
+const nearestTerminal = (
+  adjacency: ReadonlyMap<Graph.NodeIndex, ReadonlyArray<Neighbor>>,
+  tree: ReadonlySet<Graph.NodeIndex>,
+  remaining: ReadonlySet<Graph.NodeIndex>,
+): Step | undefined => {
+  const queue: Array<Step> = Array.from(tree)
+    .sort(Order.Number)
+    .map((node) => ({ node }));
+  const visited = new Set(tree);
+
+  for (const step of queue) {
+    if (remaining.has(step.node)) return step;
+
+    for (const { node, edge } of adjacency.get(step.node) ?? []) {
+      if (visited.has(node)) continue;
+
+      visited.add(node);
+      queue.push({ node, via: { edge, previous: step } });
+    }
+  }
+
+  return undefined;
+};
+
+/**
+ * Finds an approximate minimum-edge tree connecting selected nodes in an
+ * undirected graph.
+ *
+ * **Details**
+ *
+ * Each edge has unit cost. Starting from the lowest terminal index, the
+ * Takahashi–Matsuyama heuristic repeatedly adds a shortest path from the
+ * current tree to an unconnected terminal. For equal distances, breadth-first
+ * search visits tree nodes in ascending node-index order and each node's
+ * incident edges in ascending edge-index order.
+ *
+ * Duplicate terminal indices are ignored. An empty selection returns an empty
+ * tree, and a singleton returns its node. An unknown terminal fails with
+ * {@link UnknownSteinerTerminal}. Disconnected terminals return
+ * `Option.none()`. The input graph stays intact.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as Paths from "@repo/graph-goodies/Paths";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.undirected<string, undefined>((graph) => {
+ *   const junction = Graph.addNode(graph, "Junction");
+ *   for (const label of ["A", "B", "C"]) {
+ *     const terminal = Graph.addNode(graph, label);
+ *     Graph.addEdge(graph, junction, terminal, undefined);
+ *   }
+ * });
+ *
+ * const result = await Effect.runPromise(
+ *   Paths.approximateSteinerTree(graph, [1, 2, 3]),
+ * );
+ * // Option.some({ nodes: [0, 1, 2, 3], edges: [0, 1, 2] })
+ * ```
+ */
+export const approximateSteinerTree = Effect.fnUntraced(function* <N, E>(
+  graph: Graph.UndirectedGraph<N, E>,
+  terminals: ReadonlyArray<Graph.NodeIndex>,
+): Effect.fn.Return<Option.Option<SteinerTree>, UnknownSteinerTerminal> {
+  const ordered = Array.from(new Set(terminals)).sort(Order.Number);
+  for (const terminal of ordered) {
+    if (!Graph.hasNode(graph, terminal)) {
+      return yield* new UnknownSteinerTerminal({ terminal });
+    }
+  }
+  if (ordered.length < 2) {
+    return Option.some({ nodes: ordered, edges: [] });
+  }
+
+  const adjacency = new Map(
+    Array.from(Graph.nodes(graph), ([node]) => [node, new Array<Neighbor>()]),
+  );
+  for (const [edge, { source, target }] of Graph.edges(graph)) {
+    if (source === target) continue;
+
+    adjacency.get(source)!.push({ node: target, edge });
+    adjacency.get(target)!.push({ node: source, edge });
+  }
+  const byEdge = Order.mapInput(
+    Order.Number,
+    (neighbor: Neighbor) => neighbor.edge,
+  );
+  for (const neighbors of adjacency.values()) neighbors.sort(byEdge);
+
+  const [start, ...unconnected] = ordered;
+  const remaining = new Set(unconnected);
+  const nodes = new Set([start!]);
+  const edges: Array<Graph.EdgeIndex> = [];
+  while (remaining.size > 0) {
+    let step = nearestTerminal(adjacency, nodes, remaining);
+    if (step === undefined) return Option.none();
+
+    remaining.delete(step.node);
+    // Every tree node is already a BFS root, so the new path meets the tree
+    // only at its root and cannot introduce a cycle.
+    while (step.via !== undefined) {
+      nodes.add(step.node);
+      edges.push(step.via.edge);
+      step = step.via.previous;
+    }
+    yield* Effect.yieldNow;
+  }
+
+  return Option.some({
+    nodes: Array.from(nodes).sort(Order.Number),
+    edges: edges.sort(Order.Number),
+  });
 });
