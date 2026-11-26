@@ -1,6 +1,6 @@
 import { Graph, String } from "effect";
 import { Box } from "effect-boxes";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { NeighborhoodGraph } from "./NeighborhoodGraph";
 
 type Node = {
