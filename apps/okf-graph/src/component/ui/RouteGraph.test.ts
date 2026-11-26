@@ -1,6 +1,6 @@
 import { String } from "effect";
 import { Box } from "effect-boxes";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { RouteGraph } from "./RouteGraph";
 
 const visible = (text: string): string =>

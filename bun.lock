@@ -27,6 +27,7 @@
         "effect-boxes": "^0.18.1",
       },
       "devDependencies": {
+        "@effect/vitest": "4.1.4",
         "@repo/config-typescript": "workspace:*",
         "@repo/domain": "workspace:*",
         "@repo/okf": "workspace:*",

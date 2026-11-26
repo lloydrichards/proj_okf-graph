@@ -1,6 +1,6 @@
 import type { MarkdownDocument } from "@repo/domain/Markdown";
 import { Box } from "effect-boxes";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { MarkdownBox } from "./Markdown";
 
 const visible = (text: string): string =>

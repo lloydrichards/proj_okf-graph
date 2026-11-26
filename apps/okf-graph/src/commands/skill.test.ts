@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 const entry = fileURLToPath(new URL("../index.ts", import.meta.url));
 const skillMarkdown = (name: string) =>
