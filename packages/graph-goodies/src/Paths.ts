@@ -157,7 +157,7 @@ type Neighbor = {
 };
 
 const nearestTerminal = (
-  adjacency: ReadonlyMap<Graph.NodeIndex, ReadonlyArray<Neighbor>>,
+  neighborsOf: (node: Graph.NodeIndex) => ReadonlyArray<Neighbor>,
   tree: ReadonlySet<Graph.NodeIndex>,
   remaining: ReadonlySet<Graph.NodeIndex>,
 ): Step | undefined => {
@@ -169,7 +169,7 @@ const nearestTerminal = (
   for (const step of queue) {
     if (remaining.has(step.node)) return step;
 
-    for (const { node, edge } of adjacency.get(step.node) ?? []) {
+    for (const { node, edge } of neighborsOf(step.node)) {
       if (visited.has(node)) continue;
 
       visited.add(node);
@@ -231,27 +231,30 @@ export const approximateSteinerTree = Effect.fnUntraced(function* <N, E>(
     return Option.some({ nodes: ordered, edges: [] });
   }
 
-  const adjacency = new Map(
-    Array.from(Graph.nodes(graph), ([node]) => [node, new Array<Neighbor>()]),
-  );
-  for (const [edge, { source, target }] of Graph.edges(graph)) {
-    if (source === target) continue;
+  const adjacency = new Map<Graph.NodeIndex, ReadonlyArray<Neighbor>>();
+  const neighborsOf = (node: Graph.NodeIndex): ReadonlyArray<Neighbor> => {
+    const cached = adjacency.get(node);
+    if (cached !== undefined) return cached;
 
-    adjacency.get(source)!.push({ node: target, edge });
-    adjacency.get(target)!.push({ node: source, edge });
-  }
-  const byEdge = Order.mapInput(
-    Order.Number,
-    (neighbor: Neighbor) => neighbor.edge,
-  );
-  for (const neighbors of adjacency.values()) neighbors.sort(byEdge);
+    const neighbors = Graph.incidentEdges(graph, node)
+      .sort(Order.Number)
+      .flatMap((edge) => {
+        const { source, target } = Option.getOrThrow(
+          Graph.getEdge(graph, edge),
+        );
+        if (source === target) return [];
+        return [{ node: source === node ? target : source, edge }];
+      });
+    adjacency.set(node, neighbors);
+    return neighbors;
+  };
 
   const [start, ...unconnected] = ordered;
   const remaining = new Set(unconnected);
   const nodes = new Set([start!]);
   const edges: Array<Graph.EdgeIndex> = [];
   while (remaining.size > 0) {
-    let step = nearestTerminal(adjacency, nodes, remaining);
+    let step = nearestTerminal(neighborsOf, nodes, remaining);
     if (step === undefined) return Option.none();
 
     remaining.delete(step.node);

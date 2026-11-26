@@ -207,3 +207,28 @@ describe("approximateSteinerTree", () => {
       }),
   );
 });
+
+it.effect(
+  "attaches the next terminal to the nearest node in the growing tree",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.undirected<number, undefined>((graph) => {
+        for (let node = 0; node < 7; node++) Graph.addNode(graph, node);
+        for (const [from, to] of [
+          [0, 3],
+          [3, 1],
+          [1, 4],
+          [4, 2],
+          [0, 5],
+          [5, 6],
+          [6, 2],
+        ] as const) {
+          Graph.addEdge(graph, from, to, undefined);
+        }
+      });
+
+      expect(yield* Paths.approximateSteinerTree(graph, [0, 1, 2])).toEqual(
+        Option.some({ nodes: [0, 1, 2, 3, 4], edges: [0, 1, 2, 3] }),
+      );
+    }),
+);
