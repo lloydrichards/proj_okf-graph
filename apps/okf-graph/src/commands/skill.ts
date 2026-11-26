@@ -115,20 +115,36 @@ const writeSkill = Command.make(
         ...destinations.map(({ directory }) => directory),
       ];
 
+      const blocked = new Set<string>();
+      let firstNonDirectory: string | undefined;
       for (const directory of directories) {
+        if (blocked.has(path.dirname(directory))) {
+          blocked.add(directory);
+          continue;
+        }
+
         const entry = yield* inspectDestination(fs, directory);
         if (Option.isSome(entry) && entry.value.type !== "Directory") {
-          return yield* new SkillWriteRejected({
-            path: directory,
-            reason: "NotDirectory",
-          });
+          firstNonDirectory ??= directory;
+          blocked.add(directory);
         }
       }
-      const files = yield* Effect.forEach(destinations, ({ file }) =>
-        inspectDestination(fs, file).pipe(
-          Effect.map((entry) => ({ file, entry })),
-        ),
+
+      // Check reachable siblings for symlinks before reporting other conflicts.
+      const files = yield* Effect.forEach(
+        destinations.filter(({ directory }) => !blocked.has(directory)),
+        ({ file }) =>
+          inspectDestination(fs, file).pipe(
+            Effect.map((entry) => ({ file, entry })),
+          ),
       );
+      if (firstNonDirectory !== undefined) {
+        return yield* new SkillWriteRejected({
+          path: firstNonDirectory,
+          reason: "NotDirectory",
+        });
+      }
+
       for (const { file, entry } of files) {
         if (Option.isNone(entry)) continue;
         if (!force || entry.value.type !== "File") {

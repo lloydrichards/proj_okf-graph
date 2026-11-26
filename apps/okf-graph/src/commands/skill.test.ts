@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -52,7 +53,9 @@ describe("skill command", () => {
   });
 
   it("checks the whole selection for conflicts before installing, unless forced", () => {
-    const repository = mkdtempSync(join(tmpdir(), "okf-skill-conflict-"));
+    const repository = realpathSync(
+      mkdtempSync(join(tmpdir(), "okf-skill-conflict-")),
+    );
     const skills = join(repository, ".agents/skills");
     const edited = join(skills, "okf-dream", "SKILL.md");
 
@@ -112,7 +115,9 @@ describe("skill command", () => {
   });
 
   it("rejects a non-file destination even with --force", () => {
-    const repository = mkdtempSync(join(tmpdir(), "okf-skill-nonfile-"));
+    const repository = realpathSync(
+      mkdtempSync(join(tmpdir(), "okf-skill-nonfile-")),
+    );
     const skills = join(repository, ".agents/skills");
     const destination = join(skills, "okf-dream/SKILL.md");
     try {
@@ -155,6 +160,36 @@ describe("skill command", () => {
       }
     },
   );
+
+  it("reports a symlink before an earlier non-directory conflict", () => {
+    const repository = realpathSync(
+      mkdtempSync(join(tmpdir(), "okf-skill-precedence-")),
+    );
+    const skills = join(repository, ".agents/skills");
+    const nonDirectory = join(skills, "okf");
+    const link = join(skills, "okf-dream");
+    const outside = join(repository, "outside");
+
+    try {
+      mkdirSync(skills, { recursive: true });
+      mkdirSync(outside);
+      writeFileSync(nonDirectory, "keep me\n");
+      symlinkSync(outside, link, "dir");
+
+      const result = run(repository, "write");
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(stripVTControlCharacters(result.stderr)).toBe(
+        `Skill path contains a symlink: ${link}\n`,
+      );
+      expect(readdirSync(skills).sort()).toEqual(["okf", "okf-dream"]);
+      expect(readdirSync(outside)).toEqual([]);
+      expect(readFileSync(nonDirectory, "utf-8")).toBe("keep me\n");
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
 
   it("rejects symlinks in the install path", () => {
     const repository = mkdtempSync(join(tmpdir(), "okf-skill-links-"));
