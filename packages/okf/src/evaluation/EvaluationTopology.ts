@@ -64,16 +64,21 @@ export const uniqueUndirectedEndpoints = (
     uniqueEndpoints,
   );
 
+export const authoredConceptLinks = (
+  graph: OkfGraph,
+): ReadonlyArray<ConceptEdge> =>
+  pipe(
+    Array.from(Graph.edges(graph.graph)),
+    Arr.map(([, edge]) => edge.data),
+    Arr.filter((edge) => edge.kind === "concept-link"),
+  );
+
 /** Builds the stable authored and normalized graph views used by evaluation. */
 export const makeEvaluationTopology = (
   bundle: Bundle,
   graph: OkfGraph,
 ): EvaluationTopology => {
-  const resolvedOccurrences = pipe(
-    Array.from(Graph.edges(graph.graph)),
-    Arr.map(([, edge]) => edge.data),
-    Arr.filter((edge) => edge.kind === "concept-link"),
-  );
+  const resolvedOccurrences = authoredConceptLinks(graph);
   const directedTopology = pipe(
     resolvedOccurrences,
     Arr.filter(({ sourceId, targetId }) => sourceId !== targetId),
