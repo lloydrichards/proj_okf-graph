@@ -19,7 +19,7 @@ Import public APIs through their supported entry points. Tests must not import i
 
 ## Pick the runner and fixtures
 
-- Import test helpers and assertions from `@effect/vitest`. Use `it` for plain assertions, `it.effect` for Effect test bodies, and `it.live` when live Effect runtime behavior matters.
+- Import test helpers and assertions from `@effect/vitest`. If the workspace lacks it, add it as a dev dependency at the workspace’s Effect version. Use `it` for plain assertions, `it.effect` for Effect test bodies, and `it.live` when live Effect runtime behavior matters.
 - Run the real operation under test. Supply controlled dependencies at its platform boundary. Use `@effect-vfs/memory` for bundle fixtures when it supports the filesystem behavior under test. Use a scoped temporary directory for host filesystem behavior or when a separate CLI process needs to read the files. [Effect FileSystem source](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/FileSystem.ts)
 - Share setup and stateless Layers. Give each test fresh mutable state, such as a memory volume or directory, unless sharing that state is the behavior under test. Use a per-test Layer when the fixture lives in a service instance. [Effect Vitest README](https://github.com/Effect-TS/effect/blob/main/packages/vitest/README.md)
 - Use `TestClock` for Effect-controlled timeouts, delays, and retries. Keep real time for tests that need live behavior. Use readiness signals to coordinate concurrent work.
@@ -27,7 +27,7 @@ Import public APIs through their supported entry points. Tests must not import i
 
 ## Use exact examples and properties
 
-Use a small, hand-checked fixture for a known result or regression. Add a property test when an invariant should hold across varied inputs. Use Effect's arbitrary support, such as `Schema.toArbitrary`, or pass a schema directly to `it.effect.prop`. For graph tests, generate a valid input description and construct the graph through its public constructors. [Effect testing examples](https://github.com/Effect-TS/effect/blob/main/ai-docs/src/09_testing/10_effect-tests.ts)
+Use a small, hand-checked fixture for a known result or regression. Add a property test when an invariant should hold across varied inputs. Use Effect's arbitrary support, such as `Arbitrary.schema`, or pass a schema directly to `it.effect.prop`. For graph tests, generate a valid input description and construct the graph through its public constructors. [Effect testing examples](https://github.com/Effect-TS/effect/blob/main/ai-docs/src/09_testing/10_effect-tests.ts)
 
 For example, a two-node PageRank fixture can pin the expected scores. A property across non-empty graphs can check that the scores sum to one. A ranking can conserve probability while still assigning the wrong scores.
 
