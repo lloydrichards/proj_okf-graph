@@ -1,3 +1,4 @@
+import { impact } from "./impact";
 import { OkfService } from "@repo/okf";
 import {
   Array,
@@ -412,6 +413,6 @@ export const graph = Command.make(
       );
     }),
 ).pipe(
-  Command.withSubcommands([neighbors, path, topologies]),
+  Command.withSubcommands([neighbors, path, topologies, impact]),
   Command.withDescription("Print a graph of concepts and their relationships"),
 );

@@ -1,3 +1,4 @@
+export { analyzeGraphImpact } from "./evaluation/GraphImpact";
 export * from "./services/EvaluationService";
 export {
   GitHubTree,

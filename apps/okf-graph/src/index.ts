@@ -2,7 +2,7 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { GitHubTreeDefault, MarkdownService, OkfService } from "@repo/okf";
-import { Cause, Console, Effect, Layer, Option, Runtime } from "effect";
+import { Cause, Console, Effect, Layer, Option, Runtime, Stdio } from "effect";
 import { Command } from "effect/cli";
 import { Ansi, Box } from "effect-boxes";
 import packageJson from "../package.json" with { type: "json" };
@@ -10,6 +10,7 @@ import { bundle } from "./commands/bundle";
 import { concept } from "./commands/concept";
 import { evaluate } from "./commands/eval";
 import { graph, GraphConceptNotFound } from "./commands/graph";
+import { impactArgs } from "./commands/impact";
 import { skill } from "./commands/skill";
 import { validate, ValidateCommandFailed } from "./commands/validate";
 import { DevToolsLive } from "./observability/DevTools";
@@ -32,7 +33,14 @@ const RuntimeLayers = Layer.mergeAll(
 
 root.pipe(
   AllCommands,
-  Command.run({ version: packageJson.version }),
+  (command) =>
+    Stdio.Stdio.use(({ args }) =>
+      Effect.flatMap(args, (args) =>
+        Command.runWith(command, { version: packageJson.version })(
+          impactArgs(args),
+        ),
+      ),
+    ),
   Effect.provide(RuntimeLayers),
   Effect.catchCause((cause) =>
     Effect.gen(function* () {
