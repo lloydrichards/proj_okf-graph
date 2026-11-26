@@ -8,7 +8,7 @@ These conventions build on [Stack Effect's TASTE guide](https://github.com/lloyd
 
 Put defaults, ranges, and rules that can be decided from the input in Schema. Use built-in checks for individual fields and `.check(Schema.makeFilter(...))` for relationships between fields. Decode once at the boundary that accepts the input. Keep checks that need the supplied graph, filesystem, or another external resource in the operation that has access to it.
 
-For example, [the PageRank options schema](https://github.com/lloydrichards/proj_okf-graph/blob/5e006dd/packages/graph-goodies/src/Centrality.ts) puts the default next to the accepted range.
+For example, [the proposed PageRank options schema](https://github.com/lloydrichards/proj_okf-graph/blob/5e006dd/packages/graph-goodies/src/Centrality.ts) puts the default next to the accepted range.
 
 ```ts
 alpha: Schema.Finite.check(
