@@ -9,7 +9,7 @@ Start with the current owner and the callers that need the change. Read the appl
 
 ## Choose the entry point
 
-- Give new packages explicit, concept-named subpaths in `package.json`. Group operations by the question they answer, such as `Centrality.pageRank`. Keep implementation paths out of the public export map. If a wildcard could expose `internal/`, block it with `"./internal/*": null`.
+- Give new packages explicit, concept-named subpaths in `package.json`. Group operations by the question they answer, such as the proposed `Centrality.pageRank`. Keep implementation paths out of the public export map. If a wildcard could expose `internal/`, block it with `"./internal/*": null`.
 - Preserve established root imports. [The OKF package](../../../packages/okf/package.json) has a root service API, while [the domain package](../../../packages/domain/package.json) has concept subpaths. Use the existing entry point when it serves the caller. Add a subpath when callers need a distinct API.
 - Export supported operations, option and result types, and errors callers need to handle. Count use through type inference as part of the contract. Keep helpers private when their only importer would be a test.
 - Keep implementation beside its public contract until a distinct responsibility or a second caller justifies extraction. Use `src/internal/` for private modules behind that surface. Keep public signatures and docs with the concept. Avoid runtime cycles between the public module and its internals. [Effect Graph source](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/Graph.ts)
@@ -18,7 +18,7 @@ Start with the current owner and the callers that need the change. Read the appl
 
 - Keep reusable schemas, errors, types, and helpers with the concept they describe. Use Schema for runtime validation, encoding, decoding, or schema generation. Schema also fits option defaults and validation that would otherwise require manual checks. Use readonly TypeScript types for in-memory results when callers only need the shape.
 - Review the Schema value and decoded type as separate public declarations. Document accepted data, defaults, and encoding on the Schema. Document what the decoded value represents on the type. Follow the [public contract guidance in TASTE.md](../../TASTE.md#document-the-public-contract).
-- Keep dependency direction from domain-specific code toward reusable operations. Put OKF projections and result mapping in `@repo/okf`. Keep Graph Goodies generic over Effect Graph. If two modules need each other at runtime, review who owns the policy before extracting a shared module.
+- Keep dependency direction from domain-specific code toward reusable operations. Put OKF projections and result mapping in `@repo/okf`. Keep the proposed Graph Goodies package generic over Effect Graph. If two modules need each other at runtime, review who owns the policy before extracting a shared module.
 - Keep CLI flags, presentation, output files, and CLI response shapes in the app. Shared packages return reusable data. The [eval command](../../../apps/okf-graph/src/commands/eval.ts) chooses how to present a report returned by the library.
 
 ## Decide who owns the service lifetime
