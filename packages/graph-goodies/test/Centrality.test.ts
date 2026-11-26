@@ -1,4 +1,4 @@
-import { Effect, Graph } from "effect";
+import { Effect, Graph, Option } from "effect";
 import { describe, expect, it } from "@effect/vitest";
 import * as Centrality from "@repo/graph-goodies/Centrality";
 
@@ -29,6 +29,32 @@ describe("pageRank", () => {
       );
 
       expect(winner).toBe("competing fiber");
+    }),
+  );
+
+  it.live("honors a live timeout during a long ranking", () =>
+    Effect.gen(function* () {
+      const cycle = Graph.directed<number, undefined>((graph) => {
+        const nodes = Array.from({ length: 25_000 }, (_, id) =>
+          Graph.addNode(graph, id),
+        );
+        for (const [slot, from] of nodes.entries()) {
+          Graph.addEdge(
+            graph,
+            from,
+            nodes[(slot + 1) % nodes.length]!,
+            undefined,
+          );
+        }
+      });
+
+      const result = yield* Centrality.pageRank(cycle, {
+        alpha: 0.99,
+        maxIterations: 1_000,
+        restart: new Map([[0, 1]]),
+      }).pipe(Effect.timeoutOption("10 millis"));
+
+      expect(Option.isNone(result)).toBe(true);
     }),
   );
 
