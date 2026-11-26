@@ -13,10 +13,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "4.1.4"
+    "effect": "4.1.6"
   },
   "devDependencies": {
-    "@effect/vitest": "4.1.4",
+    "@effect/vitest": "4.1.6",
     "@repo/config-typescript": "workspace:*",
     "typescript": "7.0.2",
     "vitest": "^5.1.0"
