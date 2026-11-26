@@ -64,3 +64,34 @@ describe("twoHopCandidates", () => {
     }),
   );
 });
+
+it.effect(
+  "ranks a focused witness above a broad witness and keeps both explanations",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.directed<string, undefined>((graph) => {
+        const source = Graph.addNode(graph, "Source");
+        const broad = Graph.addNode(graph, "Broad witness");
+        const focused = Graph.addNode(graph, "Focused witness");
+        const broadTarget = Graph.addNode(graph, "Broad target");
+        const focusedTarget = Graph.addNode(graph, "Focused target");
+        Graph.addEdge(graph, source, broad, undefined);
+        Graph.addEdge(graph, source, focused, undefined);
+        Graph.addEdge(graph, broad, broadTarget, undefined);
+        Graph.addEdge(graph, broad, source, undefined);
+        Graph.addEdge(graph, focused, focusedTarget, undefined);
+        Graph.addEdge(graph, focused, focusedTarget, undefined);
+      });
+      const counted = yield* LinkPrediction.twoHopCandidates(graph, 0);
+      const ranked = yield* LinkPrediction.rankTwoHopCandidates(graph, 0);
+
+      expect(counted).toEqual([
+        { target: 3, intermediates: [1] },
+        { target: 4, intermediates: [2] },
+      ]);
+      expect(ranked).toEqual([
+        { target: 4, intermediates: [2], score: 1 },
+        { target: 3, intermediates: [1], score: 0.5 },
+      ]);
+    }),
+);
