@@ -5,6 +5,7 @@
  */
 
 import { Effect, Graph, Option, Schema } from "effect";
+import * as NumericSchemas from "./internal/numericSchemas";
 
 /** Selects the start, stopping targets, and maximum number of traversed edges. */
 export type FirstHitQuery = {
@@ -41,8 +42,7 @@ export class UnknownWalkNode extends Schema.TaggedError<
   node: Schema.Number,
 }) {}
 
-const WalkHorizon = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
-const isWalkHorizon = Schema.is(WalkHorizon);
+const isWalkHorizon = Schema.is(NumericSchemas.NonNegativeInt);
 
 /**
  * Calculates when a random walk first reaches each target within a step budget.

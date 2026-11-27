@@ -261,3 +261,35 @@ it.effect(
       });
     }),
 );
+
+it.effect(
+  "reports the same normalized cut as scoring the returned groups directly",
+  () =>
+    Effect.gen(function* () {
+      const graph = fixture(7, [
+        [0, 1],
+        [0, 2],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [4, 5],
+        [5, 6],
+        [3, 6],
+      ]);
+      const tree = yield* Structure.decomposeHierarchy(graph, {
+        objective: "normalizedCut",
+        maxDepth: 1,
+      });
+      if (tree._tag !== "Split") throw new Error("Expected a split");
+      const [left, right] = tree.children;
+      if (left._tag !== "Leaf" || right._tag !== "Leaf")
+        throw new Error("Expected two leaves");
+
+      const measured = yield* Structure.normalizedCut(graph, [
+        left.nodes,
+        right.nodes,
+      ]);
+      expect(measured.score).toBe(tree.score);
+      expect(measured.crossingEdges).toEqual(tree.crossingEdges);
+    }),
+);

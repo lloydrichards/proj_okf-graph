@@ -5,6 +5,11 @@
  */
 
 import { Effect, Graph, Order, Schema } from "effect";
+import * as NumericSchemas from "./internal/numericSchemas";
+import * as Partition from "./internal/partition";
+import { InvalidPartition } from "./internal/partition";
+
+export { InvalidPartition };
 
 /** Raised when a cycle prevents computing a DAG transitive reduction. */
 export class CyclicGraphError extends Schema.TaggedError<
@@ -120,9 +125,7 @@ export class InvalidColorRefinementLimit extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >()("InvalidColorRefinementLimit", { maxRounds: Schema.Number }) {}
 
-const roundLimit = Schema.is(
-  Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-);
+const roundLimit = Schema.is(NumericSchemas.NonNegativeInt);
 
 const assignColors = <A>(
   signatures: ReadonlyArray<readonly [Graph.NodeIndex, A]>,
@@ -282,146 +285,6 @@ export type NormalizedCut = {
   readonly score: number | undefined;
 };
 
-/** Raised when a partition needs a simple graph or disjoint, exhaustive groups. */
-export class InvalidPartition extends Schema.TaggedError<
-  InvalidPartition,
-  { readonly brand: unique symbol }
->()("InvalidPartition", {
-  reason: Schema.Literals([
-    "selfLoop",
-    "parallelEdge",
-    "tooFewGroups",
-    "emptyGroup",
-    "unknownNode",
-    "duplicateNode",
-    "missingNode",
-  ]),
-  index: Schema.optional(Schema.Number),
-}) {}
-
-type PartitionEdge = {
-  readonly id: Graph.EdgeIndex;
-  readonly source: Graph.NodeIndex;
-  readonly target: Graph.NodeIndex;
-};
-
-type PartitionGraph = {
-  readonly nodes: ReadonlyArray<Graph.NodeIndex>;
-  readonly edges: ReadonlyArray<PartitionEdge>;
-};
-
-const readPartitionGraph = Effect.fnUntraced(function* <N, E>(
-  graph: Graph.UndirectedGraph<N, E>,
-): Effect.fn.Return<PartitionGraph, InvalidPartition> {
-  const nodes = Array.from(Graph.nodes(graph), ([id]) => id).sort(Order.Number);
-  const neighbors = new Map<Graph.NodeIndex, Set<Graph.NodeIndex>>();
-  const edges: PartitionEdge[] = [];
-  for (const [id, edge] of Graph.edges(graph)) {
-    const source = Math.min(edge.source, edge.target);
-    const target = Math.max(edge.source, edge.target);
-    if (source === target)
-      return yield* new InvalidPartition({ reason: "selfLoop", index: id });
-
-    const adjacent = neighbors.get(source) ?? new Set<Graph.NodeIndex>();
-    if (adjacent.has(target))
-      return yield* new InvalidPartition({ reason: "parallelEdge", index: id });
-    adjacent.add(target);
-    neighbors.set(source, adjacent);
-    edges.push({ id, source, target });
-  }
-
-  return { nodes, edges };
-});
-
-const readGroups = Effect.fnUntraced(function* (
-  nodes: ReadonlyArray<Graph.NodeIndex>,
-  groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
-): Effect.fn.Return<ReadonlyMap<Graph.NodeIndex, number>, InvalidPartition> {
-  if (groups.length < 2)
-    return yield* new InvalidPartition({ reason: "tooFewGroups" });
-
-  const available = new Set(nodes);
-  const membership = new Map<Graph.NodeIndex, number>();
-  for (const [index, group] of groups.entries()) {
-    if (group.length === 0)
-      return yield* new InvalidPartition({ reason: "emptyGroup", index });
-    for (const node of group) {
-      if (!available.has(node))
-        return yield* new InvalidPartition({
-          reason: "unknownNode",
-          index: node,
-        });
-      if (membership.has(node))
-        return yield* new InvalidPartition({
-          reason: "duplicateNode",
-          index: node,
-        });
-      membership.set(node, index);
-    }
-  }
-
-  for (const node of nodes) {
-    if (!membership.has(node))
-      return yield* new InvalidPartition({
-        reason: "missingNode",
-        index: node,
-      });
-  }
-
-  return membership;
-});
-
-const pairs = (size: number): number => (size * (size - 1)) / 2;
-
-const redundancy = (
-  possible: number,
-  possibleCrossing: number,
-  edgeCount: number,
-  crossing: number,
-): number | undefined => {
-  const spread = Math.sqrt(possibleCrossing * (possible - possibleCrossing));
-  return spread === 0
-    ? undefined
-    : (possible * crossing - edgeCount * possibleCrossing) / spread;
-};
-
-const exitFraction = (exits: number, volume: number): number | undefined =>
-  volume === 0 ? undefined : exits / volume;
-
-const twoWayNormalizedCut = (
-  crossing: number,
-  leftVolume: number,
-  rightVolume: number,
-): number | undefined =>
-  leftVolume === 0 || rightVolume === 0
-    ? undefined
-    : (crossing * (leftVolume + rightVolume)) / (leftVolume * rightVolume);
-
-const measurePartition = (
-  graph: PartitionGraph,
-  membership: ReadonlyMap<Graph.NodeIndex, number>,
-  groupCount: number,
-) => {
-  const crossingEdges: Graph.EdgeIndex[] = [];
-  const groups = Array.from({ length: groupCount }, () => ({
-    volume: 0,
-    exits: 0,
-  }));
-  for (const { id, source, target } of graph.edges) {
-    const from = membership.get(source)!;
-    const to = membership.get(target)!;
-    groups[from]!.volume++;
-    groups[to]!.volume++;
-    if (from === to) continue;
-
-    crossingEdges.push(id);
-    groups[from]!.exits++;
-    groups[to]!.exits++;
-  }
-
-  return { crossingEdges: crossingEdges.sort(Order.Number), groups };
-};
-
 /**
  * Scores a given grouping against a baseline with the same number of randomly
  * placed edges.
@@ -437,18 +300,28 @@ export const scorePartition = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
 ): Effect.fn.Return<PartitionScore, InvalidPartition> {
-  const input = yield* readPartitionGraph(graph);
-  const membership = yield* readGroups(input.nodes, groups);
-  const { crossingEdges } = measurePartition(input, membership, groups.length);
-  const possible = pairs(input.nodes.length);
+  const input = yield* Partition.readPartitionGraph(graph);
+  const membership = yield* Partition.readGroups(input.nodes, groups);
+  const { crossingEdges } = Partition.measurePartition(
+    input,
+    membership,
+    groups.length,
+  );
+  const possible = Partition.pairs(input.nodes.length);
   const possibleCrossing =
-    possible - groups.reduce((sum, group) => sum + pairs(group.length), 0);
+    possible -
+    groups.reduce((sum, group) => sum + Partition.pairs(group.length), 0);
   const observed = crossingEdges.length;
   return {
     crossingEdges,
     observed,
     expected: (input.edges.length * possibleCrossing) / possible,
-    score: redundancy(possible, possibleCrossing, input.edges.length, observed),
+    score: Partition.redundancy(
+      possible,
+      possibleCrossing,
+      input.edges.length,
+      observed,
+    ),
   };
 });
 
@@ -468,23 +341,23 @@ export const normalizedCut = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   partition: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
 ): Effect.fn.Return<NormalizedCut, InvalidPartition> {
-  const input = yield* readPartitionGraph(graph);
-  const membership = yield* readGroups(input.nodes, partition);
-  const { crossingEdges, groups } = measurePartition(
+  const input = yield* Partition.readPartitionGraph(graph);
+  const membership = yield* Partition.readGroups(input.nodes, partition);
+  const { crossingEdges, groups } = Partition.measurePartition(
     input,
     membership,
     partition.length,
   );
   const fractions = groups.map((group) => ({
     ...group,
-    fraction: exitFraction(group.exits, group.volume),
+    fraction: Partition.exitFraction(group.exits, group.volume),
   }));
   return {
     crossingEdges,
     groups: fractions,
     score:
       fractions.length === 2
-        ? twoWayNormalizedCut(
+        ? Partition.twoWayNormalizedCut(
             crossingEdges.length,
             fractions[0]!.volume,
             fractions[1]!.volume,
@@ -494,18 +367,6 @@ export const normalizedCut = Effect.fnUntraced(function* <N, E>(
           : fractions.reduce((sum, { fraction }) => sum + fraction!, 0),
   };
 });
-
-/** Controls the score, starting points per group, and size and depth of the hierarchy. */
-export type DecompositionOptions = {
-  /** Defaults to Alexander's score. */
-  readonly objective?: "alexander" | "normalizedCut";
-  /** Maximum breadth-first starting points per group. Defaults to 32. */
-  readonly maxSeeds?: number;
-  /** Maximum splits along a branch. Defaults to 3. */
-  readonly maxDepth?: number;
-  /** Minimum nodes per child. Defaults to 2. */
-  readonly minGroupSize?: number;
-};
 
 /** Raised when a hierarchy option is invalid. */
 export class InvalidDecompositionOptions extends Schema.TaggedError<
@@ -517,16 +378,29 @@ const DecompositionConfig = Schema.Struct({
   objective: Schema.Literals(["alexander", "normalizedCut"]).pipe(
     Schema.withDecodingDefault(Effect.succeed("alexander" as const)),
   ),
-  maxSeeds: Schema.Int.check(Schema.isGreaterThan(0)).pipe(
+  maxSeeds: NumericSchemas.PositiveInt.pipe(
     Schema.withDecodingDefault(Effect.succeed(32)),
   ),
-  maxDepth: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).pipe(
+  maxDepth: NumericSchemas.NonNegativeInt.pipe(
     Schema.withDecodingDefault(Effect.succeed(3)),
   ),
-  minGroupSize: Schema.Int.check(Schema.isGreaterThan(0)).pipe(
+  minGroupSize: NumericSchemas.PositiveInt.pipe(
     Schema.withDecodingDefault(Effect.succeed(2)),
   ),
 });
+
+/**
+ * Chooses the objective and bounds hierarchy search.
+ *
+ * Defaults to Alexander's score, 32 breadth-first seeds per group,
+ * three splits per branch, and at least two nodes per child.
+ */
+export type DecompositionOptions = {
+  readonly [K in keyof typeof DecompositionConfig.Encoded]?: Exclude<
+    (typeof DecompositionConfig.Encoded)[K],
+    undefined
+  >;
+};
 
 /** A hierarchy node with either a stopping reason or a split and its evidence. */
 export type Decomposition =
@@ -570,7 +444,7 @@ const neighborhoodOrder = (
 };
 
 const findBoundary = Effect.fnUntraced(function* (
-  graph: PartitionGraph,
+  graph: Partition.PartitionGraph,
   config: typeof DecompositionConfig.Type,
 ) {
   const { nodes, edges } = graph;
@@ -617,13 +491,13 @@ const findBoundary = Effect.fnUntraced(function* (
       const oppositeVolume = 2 * edges.length - volume;
       const score =
         config.objective === "alexander"
-          ? redundancy(
-              pairs(size),
+          ? Partition.redundancy(
+              Partition.pairs(size),
               left.size * (size - left.size),
               edges.length,
               crossing,
             )
-          : twoWayNormalizedCut(crossing, volume, oppositeVolume);
+          : Partition.twoWayNormalizedCut(crossing, volume, oppositeVolume);
       if (score !== undefined && (best === undefined || score < best.score)) {
         best = { order, size: left.size, score };
       }
@@ -635,7 +509,7 @@ const findBoundary = Effect.fnUntraced(function* (
 });
 
 const decompose = Effect.fnUntraced(function* (
-  graph: PartitionGraph,
+  graph: Partition.PartitionGraph,
   config: typeof DecompositionConfig.Type,
   depth: number,
 ): Effect.fn.Return<Decomposition> {
@@ -669,8 +543,8 @@ const decompose = Effect.fnUntraced(function* (
   const membership = new Set(best.order.slice(0, best.size));
   const left = graph.nodes.filter((node) => membership.has(node));
   const right = graph.nodes.filter((node) => !membership.has(node));
-  const leftEdges: PartitionEdge[] = [];
-  const rightEdges: PartitionEdge[] = [];
+  const leftEdges: Partition.PartitionEdge[] = [];
+  const rightEdges: Partition.PartitionEdge[] = [];
   const crossingEdges: Graph.EdgeIndex[] = [];
   for (const edge of graph.edges) {
     const sourceLeft = membership.has(edge.source);
@@ -721,6 +595,6 @@ export const decomposeHierarchy = Effect.fnUntraced(function* <N, E>(
   const config = yield* Schema.decodeEffect(DecompositionConfig)(options).pipe(
     Effect.mapError(() => new InvalidDecompositionOptions()),
   );
-  const input = yield* readPartitionGraph(graph);
+  const input = yield* Partition.readPartitionGraph(graph);
   return yield* decompose(input, config, config.maxDepth);
 });

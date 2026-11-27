@@ -9,18 +9,7 @@
  */
 
 import { Effect, Graph, Schema, SchemaIssue } from "effect";
-
-/** Controls the random walk and its convergence. */
-export type PageRankOptions = {
-  /** Probability of following a link. Defaults to 0.85. */
-  readonly alpha?: number;
-  /** Maximum sum of absolute score changes for convergence. Defaults to 1e-6. */
-  readonly tolerance?: number;
-  /** Limit on power iterations. Defaults to 100. */
-  readonly maxIterations?: number;
-  /** Relative restart weights. Omitted nodes get zero weight. Defaults to uniform. */
-  readonly restart?: ReadonlyMap<Graph.NodeIndex, number>;
-};
+import * as NumericSchemas from "./internal/numericSchemas";
 
 /** Reports the estimated visit probabilities and the final iteration status. */
 export type PageRankResult = {
@@ -42,7 +31,7 @@ const Options = Schema.Struct({
   tolerance: Schema.Finite.check(Schema.isGreaterThan(0)).pipe(
     Schema.withDecodingDefault(Effect.succeed(1e-6)),
   ),
-  maxIterations: Schema.Int.check(Schema.isGreaterThan(0)).pipe(
+  maxIterations: NumericSchemas.PositiveInt.pipe(
     Schema.withDecodingDefault(Effect.succeed(100)),
   ),
   restart: Schema.optional(
@@ -58,6 +47,20 @@ const Options = Schema.Struct({
     ),
   ),
 });
+
+/**
+ * Controls the random walk and its convergence.
+ *
+ * Defaults to following links with probability 0.85, a tolerance of 1e-6,
+ * 100 iterations, and uniform restart weights. With custom weights, omitted
+ * nodes receive zero restart weight.
+ */
+export type PageRankOptions = {
+  readonly [K in keyof typeof Options.Encoded]?: Exclude<
+    (typeof Options.Encoded)[K],
+    undefined
+  >;
+};
 
 const OptionName = Schema.Literals([
   "alpha",
