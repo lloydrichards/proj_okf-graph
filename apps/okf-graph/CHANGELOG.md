@@ -1,5 +1,21 @@
 # okf-graph
 
+## 0.5.0
+
+### Minor Changes
+
+- 6230627: Preview how removing a link or concept would affect an authored route with `graph impact`.
+
+  ```sh
+  okf-graph graph impact ./my-bundle start goal --without-concept middle
+  ```
+
+### Patch Changes
+
+- 6a7aa09: Report filesystem inspection failures during `okf-graph skill write` preflight before writing any skill files.
+- 965e71e: Keep `okf-graph validate --json` output parseable when validation fails, while preserving exit status 1 for invalid or missing bundles.
+- 8244c73: Break ties between equally short `okf-graph graph path` routes by ascending concept ID so reordering links in Markdown leaves the chosen route stable.
+
 ## 0.4.0
 
 ### Minor Changes
