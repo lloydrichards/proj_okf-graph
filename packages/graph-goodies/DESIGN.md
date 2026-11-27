@@ -62,6 +62,27 @@ in their neighborhoods. Separate incoming and outgoing roles on a directed
 graph. Matching colors indicate that the performed rounds leave those nodes
 indistinguishable by these features. [Weisfeiler–Lehman graph kernels](https://www.jmlr.org/papers/v12/shervashidze11a.html)
 
+## Hierarchical decomposition
+
+Use `Structure.scorePartition` to compare crossing edges with Alexander’s
+same-density random baseline. Use `Structure.normalizedCut` to compare the
+fraction of incident edge ends that exits each group. Both score a supplied
+partition on a simple undirected graph. [Alexander’s HIDECS 2
+report](https://christopher-alexander-ces-archive.org/article/hidecs-2-a-computer-program-for-the-hierarchical-decomposition-of-a-set-which-has-an-associated-linear-graph-research-report-r62-2/)
+and [Shi and Malik’s normalized cut paper](https://people.eecs.berkeley.edu/~malik/papers/shi-malik97.pdf)
+describe the respective objectives.
+
+`Structure.decomposeHierarchy` scores prefixes of breadth-first orders. It
+examines at most `min(maxSeeds, n) × (n - 2 × minGroupSize + 1)` candidates
+per group that is large enough to split. The search can miss the global
+optimum. The tree keeps original crossing edge IDs and records why each
+branch stopped.
+
+For the houseplants bundle, projecting 67 concepts to 207 simple
+undirected authored links and using all 67 seeds produced a 44/23 root
+split under Alexander’s objective and a 9/58 split under normalized cut.
+This projection leaves folder and frontmatter relationships to the caller.
+
 ## Open research questions
 
 - Effective resistance needs a conductance model and a fixture that shows
