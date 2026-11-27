@@ -9,6 +9,7 @@
     "./Paths": "./src/Paths.ts",
     "./LinkPrediction": "./src/LinkPrediction.ts",
     "./Structure": "./src/Structure.ts",
+    "./RandomWalk": "./src/RandomWalk.ts",
     "./internal/*": null
   },
   "scripts": {

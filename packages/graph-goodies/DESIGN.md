@@ -51,6 +51,12 @@ the closest remaining terminal, returning original node and edge indices.
 Three selected nodes can share a junction outside the selection. [Mehlhorn's
 comparison of Steiner tree algorithms](https://people.mpi-inf.mpg.de/~mehlhorn/ftp/SteinerTrees.pdf)
 
+Use `RandomWalk.firstHitWithin` for a bounded navigation question. A walk
+stops when it hits a selected target or reaches a dead end. The result shows
+the first-hit probability at each step and the probability still moving at
+the horizon. PageRank answers the separate question of long-run visit
+frequency under a restart policy.
+
 ## Follow-up candidates
 
 - Explore Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods.
