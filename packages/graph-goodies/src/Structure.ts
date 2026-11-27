@@ -5,6 +5,7 @@
  */
 
 import { Effect, Graph, Order, Result, Schema } from "effect";
+import { dual } from "effect/Function";
 import * as NumericSchemas from "./internal/numericSchemas";
 import * as Partition from "./internal/partition";
 
@@ -158,40 +159,7 @@ const signatureOrder = Order.Tuple([
   Order.Array(Order.Number),
 ]);
 
-/**
- * Groups nodes by their labels and repeated patterns in their neighborhoods.
- *
- * **Details**
- *
- * Each Weisfeiler–Lehman refinement round splits a color class according to
- * the multisets of colors on adjacent nodes. Directed graphs compare incoming
- * and outgoing neighborhoods separately. An undirected self-loop contributes
- * once, and parallel edges contribute separately. Edge payloads are ignored.
- *
- * Colors are deterministic for the same graph and initial labels. They
- * identify classes within this result. Equal colors mean the performed
- * rounds could not distinguish two nodes, and do not establish a graph
- * isomorphism or prove the nodes can be exchanged.
- *
- * **Example**
- *
- * ```ts
- * import * as Structure from "@repo/graph-goodies/Structure";
- * import { Effect, Graph } from "effect";
- *
- * const graph = Graph.undirected<string, undefined>((graph) => {
- *   const left = Graph.addNode(graph, "Left");
- *   const hub = Graph.addNode(graph, "Hub");
- *   const right = Graph.addNode(graph, "Right");
- *   Graph.addEdge(graph, left, hub, undefined);
- *   Graph.addEdge(graph, hub, right, undefined);
- * });
- *
- * const { colors } = await Effect.runPromise(Structure.refineColors(graph));
- * // The two leaves share a color. The hub has a different color.
- * ```
- */
-export const refineColors = Effect.fnUntraced(function* <
+const refineColorsEffect = Effect.fnUntraced(function* <
   N,
   E,
   K extends Graph.Kind,
@@ -261,6 +229,56 @@ export const refineColors = Effect.fnUntraced(function* <
   return { colors: partition.colors, rounds, converged: false };
 });
 
+/**
+ * Groups nodes by their labels and repeated patterns in their neighborhoods.
+ *
+ * **Details**
+ *
+ * Supports data-first calls and data-last calls in a graph pipeline.
+ *
+ * Each Weisfeiler–Lehman refinement round splits a color class according to
+ * the multisets of colors on adjacent nodes. Directed graphs compare incoming
+ * and outgoing neighborhoods separately. An undirected self-loop contributes
+ * once, and parallel edges contribute separately. Edge payloads are ignored.
+ *
+ * Colors are deterministic for the same graph and initial labels. They
+ * identify classes within this result. Equal colors mean the performed
+ * rounds could not distinguish two nodes, and do not establish a graph
+ * isomorphism or prove the nodes can be exchanged.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as Structure from "@repo/graph-goodies/Structure";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.undirected<string, undefined>((graph) => {
+ *   const left = Graph.addNode(graph, "Left");
+ *   const hub = Graph.addNode(graph, "Hub");
+ *   const right = Graph.addNode(graph, "Right");
+ *   Graph.addEdge(graph, left, hub, undefined);
+ *   Graph.addEdge(graph, hub, right, undefined);
+ * });
+ *
+ * const { colors } = await Effect.runPromise(Structure.refineColors(graph));
+ * // The two leaves share a color. The hub has a different color.
+ * ```
+ */
+export const refineColors: {
+  (): <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+  ) => Effect.Effect<ColorRefinement, InvalidColorRefinementLimit>;
+  <N>(
+    options: ColorRefinementOptions<N> | undefined,
+  ): <E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+  ) => Effect.Effect<ColorRefinement, InvalidColorRefinementLimit>;
+  <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+    options?: ColorRefinementOptions<N>,
+  ): Effect.Effect<ColorRefinement, InvalidColorRefinementLimit>;
+} = dual((args) => Graph.isGraph(args[0]), refineColorsEffect);
+
 /** Original edges crossing a partition and its observed and expected counts. */
 export type PartitionScore = {
   readonly crossingEdges: ReadonlyArray<Graph.EdgeIndex>;
@@ -295,18 +313,7 @@ const withPartitionError = <A>(
     Result.mapError(result, (issue) => new InvalidPartition(issue)),
   );
 
-/**
- * Scores a given grouping against a baseline with the same number of randomly
- * placed edges.
- *
- * **Details**
- *
- * The graph must be simple and undirected. Groups must be nonempty and
- * contain every node exactly once. Negative scores mean fewer crossing edges
- * than expected. The score is undefined when all possible pairs cross the partition.
- * Edge payloads are ignored and crossing edge indices are sorted.
- */
-export const scorePartition = Effect.fnUntraced(function* <N, E>(
+const scorePartitionEffect = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
 ): Effect.fn.Return<PartitionScore, InvalidPartition> {
@@ -338,18 +345,31 @@ export const scorePartition = Effect.fnUntraced(function* <N, E>(
 });
 
 /**
- * Scores a given grouping by summing the fractions of each group's edge ends
- * that lead outside it.
+ * Scores a given grouping against a baseline with the same number of randomly
+ * placed edges.
  *
  * **Details**
  *
- * Groups have the same rules as {@link scorePartition}. An internal edge
- * contributes two edge ends to its group. A crossing edge contributes one
- * exit and one edge end to each group it touches. A group with no edge ends
- * leaves the overall score undefined. Lower scores mean less flow across
- * the boundary.
+ * Supports data-first calls and data-last calls in a graph pipeline.
+ *
+ * The graph must be simple and undirected. Groups must be nonempty and
+ * contain every node exactly once. Negative scores mean fewer crossing edges
+ * than expected. The score is undefined when all possible pairs cross the partition.
+ * Edge payloads are ignored and crossing edge indices are sorted.
  */
-export const normalizedCut = Effect.fnUntraced(function* <N, E>(
+export const scorePartition: {
+  (
+    groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
+  ): <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+  ) => Effect.Effect<PartitionScore, InvalidPartition>;
+  <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+    groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
+  ): Effect.Effect<PartitionScore, InvalidPartition>;
+} = dual(2, scorePartitionEffect);
+
+const normalizedCutEffect = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   partition: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
 ): Effect.fn.Return<NormalizedCut, InvalidPartition> {
@@ -381,6 +401,32 @@ export const normalizedCut = Effect.fnUntraced(function* <N, E>(
           : fractions.reduce((sum, { fraction }) => sum + fraction!, 0),
   };
 });
+
+/**
+ * Scores a given grouping by summing the fractions of each group's edge ends
+ * that lead outside it.
+ *
+ * **Details**
+ *
+ * Supports data-first calls and data-last calls in a graph pipeline.
+ *
+ * Groups have the same rules as {@link scorePartition}. An internal edge
+ * contributes two edge ends to its group. A crossing edge contributes one
+ * exit and one edge end to each group it touches. A group with no edge ends
+ * leaves the overall score undefined. Lower scores mean less flow across
+ * the boundary.
+ */
+export const normalizedCut: {
+  (
+    partition: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
+  ): <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+  ) => Effect.Effect<NormalizedCut, InvalidPartition>;
+  <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+    partition: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
+  ): Effect.Effect<NormalizedCut, InvalidPartition>;
+} = dual(2, normalizedCutEffect);
 
 /** Raised when a hierarchy option is invalid. */
 export class InvalidDecompositionOptions extends Schema.TaggedError<
@@ -585,21 +631,7 @@ const decompose = Effect.fnUntraced(function* (
   };
 });
 
-/**
- * Suggests a hierarchy of two-way splits in a simple undirected graph.
- *
- * **Details**
- *
- * For each group, take breadth-first orders from up to `maxSeeds` nodes
- * evenly spaced by ascending node index, and score prefixes that meet the
- * size limit. Each traversal finishes one connected component before starting
- * the next from its lowest unseen index. Ties keep the first
- * candidate. Repeat on the links internal to each child. Stop at the depth
- * or size limit, or when no candidate scores below zero for Alexander's
- * score or below one for normalized cut. These thresholds are stopping
- * rules. Original node and crossing edge indices identify the results.
- */
-export const decomposeHierarchy = Effect.fnUntraced(function* <N, E>(
+const decomposeHierarchyEffect = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   options: DecompositionOptions = {},
 ): Effect.fn.Return<
@@ -612,3 +644,37 @@ export const decomposeHierarchy = Effect.fnUntraced(function* <N, E>(
   const input = yield* withPartitionError(Partition.readPartitionGraph(graph));
   return yield* decompose(input, config, config.maxDepth);
 });
+
+/**
+ * Suggests a hierarchy of two-way splits in a simple undirected graph.
+ *
+ * **Details**
+ *
+ * Supports data-first calls and data-last calls in a graph pipeline.
+ *
+ * For each group, take breadth-first orders from up to `maxSeeds` nodes
+ * evenly spaced by ascending node index, and score prefixes that meet the
+ * size limit. Each traversal finishes one connected component before starting
+ * the next from its lowest unseen index. Ties keep the first
+ * candidate. Repeat on the links internal to each child. Stop at the depth
+ * or size limit, or when no candidate scores below zero for Alexander's
+ * score or below one for normalized cut. These thresholds are stopping
+ * rules. Original node and crossing edge indices identify the results.
+ */
+export const decomposeHierarchy: {
+  (
+    options?: DecompositionOptions,
+  ): <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+  ) => Effect.Effect<
+    Decomposition,
+    InvalidPartition | InvalidDecompositionOptions
+  >;
+  <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+    options?: DecompositionOptions,
+  ): Effect.Effect<
+    Decomposition,
+    InvalidPartition | InvalidDecompositionOptions
+  >;
+} = dual((args) => Graph.isGraph(args[0]), decomposeHierarchyEffect);

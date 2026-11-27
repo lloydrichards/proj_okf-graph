@@ -35,12 +35,10 @@ describe("findTypedPath", () => {
   it.effect("matches the full sequence and resolves ties by edge index", () =>
     Effect.gen(function* () {
       const { graph, source, target, via, first, second } = makeFixture();
-      const result = yield* Paths.findTypedPath(graph, {
-        source,
-        target,
-        labels: ["context", "evidence"],
-        label,
-      });
+      const query = { source, target, labels: ["context", "evidence"], label };
+      const result = yield* Paths.findTypedPath(graph, query);
+      const piped = yield* graph.pipe(Paths.findTypedPath(query));
+      expect(piped).toEqual(result);
       expect(result).toEqual(
         Option.some({ nodes: [source, via, target], edges: [first, second] }),
       );
@@ -151,11 +149,14 @@ describe("approximateSteinerTree", () => {
         Graph.addEdge(mutable, junction, second, undefined);
         const thirdSpoke = Graph.addEdge(mutable, junction, third, undefined);
 
-        const result = yield* Paths.approximateSteinerTree(
-          Graph.endMutation(mutable),
-          [third, second, first, third],
+        const graph = Graph.endMutation(mutable);
+        const terminals = [third, second, first, third];
+        const result = yield* Paths.approximateSteinerTree(graph, terminals);
+        const piped = yield* graph.pipe(
+          Paths.approximateSteinerTree(terminals),
         );
 
+        expect(piped).toEqual(result);
         expect(result).toEqual(
           Option.some({
             nodes: [first, junction, second, third],

@@ -5,6 +5,7 @@
  */
 
 import { Effect, Graph, Option, Schema } from "effect";
+import { dual } from "effect/Function";
 import * as NumericSchemas from "./internal/numericSchemas";
 
 /** Selects the start, stopping targets, and maximum number of traversed edges. */
@@ -44,44 +45,21 @@ export class UnknownWalkNode extends Schema.TaggedError<
 
 const isWalkHorizon = Schema.is(NumericSchemas.NonNegativeInt);
 
-/**
- * Calculates when a random walk first reaches each target within a step budget.
- *
- * **Details**
- *
- * The walk starts at the source at step zero. At each step it chooses uniformly
- * among the current node's outgoing edges. Parallel edges are separate choices,
- * self-loops take one step, and edge payloads do not affect the walk. Hitting a
- * target stops that part of the walk. Reaching any other node with no outgoing
- * edges counts as a dead-end stop, including at step zero or the horizon.
- *
- * Targets are treated as a set. With no targets, the result reports only
- * dead-end and remaining probability. The three outcomes sum to one within
- * floating-point precision. The horizon must be a non-negative safe integer.
- * Runtime can grow with the horizon even without hits, and the result retains
- * a map for each step with hits. Choose a horizon that fits the query budget.
- *
- * **Example**
- *
- * ```ts
- * import * as RandomWalk from "@repo/graph-goodies/RandomWalk";
- * import { Effect, Graph } from "effect";
- *
- * const graph = Graph.directed<string, undefined>((graph) => {
- *   const start = Graph.addNode(graph, "Start");
- *   const goal = Graph.addNode(graph, "Goal");
- *   Graph.addEdge(graph, start, start, undefined);
- *   Graph.addEdge(graph, start, goal, undefined);
- * });
- *
- * const result = await Effect.runPromise(
- *   RandomWalk.firstHitWithin(graph, { source: 0, targets: [1], maxSteps: 2 }),
- * );
- * // The goal is first hit with probability 0.5 at step 1 and 0.25 at step 2.
- * // The remaining 0.25 is still at Start.
- * ```
- */
-export const firstHitWithin = Effect.fnUntraced(function* <N, E>(
+const outgoingTransitions = <N, E>(
+  graph: Graph.DirectedGraph<N, E>,
+  node: Graph.NodeIndex,
+) => {
+  const edges = Graph.outgoingEdges(graph, node);
+  const multiplicities = new Map<Graph.NodeIndex, number>();
+  for (const edge of edges) {
+    const { target } = Option.getOrThrow(Graph.getEdge(graph, edge));
+    multiplicities.set(target, (multiplicities.get(target) ?? 0) + 1);
+  }
+
+  return { degree: edges.length, multiplicities };
+};
+
+const runFirstHitWithin = Effect.fnUntraced(function* <N, E>(
   graph: Graph.DirectedGraph<N, E>,
   query: FirstHitQuery,
 ): Effect.fn.Return<FirstHitResult, InvalidWalkHorizon | UnknownWalkNode> {
@@ -121,13 +99,7 @@ export const firstHitWithin = Effect.fnUntraced(function* <N, E>(
 
       let outgoing = adjacency.get(node);
       if (outgoing === undefined) {
-        const edges = Graph.outgoingEdges(graph, node);
-        const multiplicities = new Map<Graph.NodeIndex, number>();
-        for (const edge of edges) {
-          const { target } = Option.getOrThrow(Graph.getEdge(graph, edge));
-          multiplicities.set(target, (multiplicities.get(target) ?? 0) + 1);
-        }
-        outgoing = { degree: edges.length, multiplicities };
+        outgoing = outgoingTransitions(graph, node);
         adjacency.set(node, outgoing);
       }
       if (outgoing.degree === 0) {
@@ -152,3 +124,54 @@ export const firstHitWithin = Effect.fnUntraced(function* <N, E>(
 
   return { hitsByStep, deadEndProbability, remainingProbability };
 });
+
+/**
+ * Calculates when a random walk first reaches each target within a step budget.
+ *
+ * **Details**
+ *
+ * The walk starts at the source at step zero. At each step it chooses uniformly
+ * among the current node's outgoing edges. Parallel edges are separate choices,
+ * self-loops take one step, and edge payloads do not affect the walk. Hitting a
+ * target stops that part of the walk. Reaching any other node with no outgoing
+ * edges counts as a dead-end stop, including at step zero or the horizon.
+ *
+ * Targets are treated as a set. With no targets, the result reports only
+ * dead-end and remaining probability. The three outcomes sum to one within
+ * floating-point precision. The horizon must be a non-negative safe integer.
+ * Runtime can grow with the horizon even without hits, and the result retains
+ * a map for each step with hits. Choose a horizon that fits the query budget.
+ * Pass the graph and query directly or pipe the graph into
+ * `firstHitWithin(query)`.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as RandomWalk from "@repo/graph-goodies/RandomWalk";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.directed<string, undefined>((graph) => {
+ *   const start = Graph.addNode(graph, "Start");
+ *   const goal = Graph.addNode(graph, "Goal");
+ *   Graph.addEdge(graph, start, start, undefined);
+ *   Graph.addEdge(graph, start, goal, undefined);
+ * });
+ *
+ * const result = await Effect.runPromise(
+ *   RandomWalk.firstHitWithin(graph, { source: 0, targets: [1], maxSteps: 2 }),
+ * );
+ * // The goal is first hit with probability 0.5 at step 1 and 0.25 at step 2.
+ * // The remaining 0.25 is still at Start.
+ * ```
+ */
+export const firstHitWithin: {
+  (
+    query: FirstHitQuery,
+  ): <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+  ) => Effect.Effect<FirstHitResult, InvalidWalkHorizon | UnknownWalkNode>;
+  <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    query: FirstHitQuery,
+  ): Effect.Effect<FirstHitResult, InvalidWalkHorizon | UnknownWalkNode>;
+} = dual(2, runFirstHitWithin);

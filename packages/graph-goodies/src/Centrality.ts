@@ -9,6 +9,7 @@
  */
 
 import { Effect, Graph, Schema, SchemaIssue } from "effect";
+import { dual } from "effect/Function";
 import * as NumericSchemas from "./internal/numericSchemas";
 
 /** Reports the estimated visit probabilities and the final iteration status. */
@@ -80,47 +81,34 @@ export class InvalidPageRankOptions extends Schema.TaggedError<
   message: Schema.String,
 }) {}
 
-/**
- * Estimates the long-run visit probability of each node in a directed or
- * undirected graph.
- *
- * **Details**
- *
- * Each edge contributes one possible step. Parallel edges count separately.
- * Undirected edges allow travel both ways, with a self-loop counted once.
- * The walk ignores edge payloads.
- *
- * The walk uses the same restart distribution at dead ends and for random
- * restarts. Supply finite, non-negative weights for existing nodes, with at
- * least one positive weight, to personalize that distribution. An empty graph
- * returns an empty ranking when you omit restart weights. Invalid options fail
- * with {@link InvalidPageRankOptions}.
- *
- * If the iteration limit is reached before convergence, the result contains
- * the last estimate with `converged` set to `false`. The effect yields
- * between iterations so other fibers can run and interrupt it.
- *
- * **Example**
- *
- * ```ts
- * import * as Centrality from "@repo/graph-goodies/Centrality";
- * import { Effect, Graph } from "effect";
- *
- * const graph = Graph.directed<string, undefined>((graph) => {
- *   const start = Graph.addNode(graph, "Start");
- *   const guide = Graph.addNode(graph, "Guide");
- *   Graph.addEdge(graph, start, guide, undefined);
- * });
- *
- * const result = Effect.runSync(Centrality.pageRank(graph, { alpha: 0.5 }));
- * // Scores are approximately 0.4 for Start and 0.6 for Guide.
- * ```
- */
-export const pageRank = Effect.fnUntraced(function* <
-  N,
-  E,
-  K extends Graph.Kind,
->(
+const rankStep = (
+  current: Float64Array,
+  weights: Float64Array,
+  outgoing: ReadonlyArray<ReadonlyArray<number>>,
+  alpha: number,
+) => {
+  let dangling = 0;
+  for (const [slot, targets] of outgoing.entries()) {
+    if (targets.length === 0) dangling += current[slot]!;
+  }
+
+  const next = weights.map((weight) => (1 - alpha + alpha * dangling) * weight);
+  for (const [slot, targets] of outgoing.entries()) {
+    if (targets.length === 0) continue;
+    const share = (alpha * current[slot]!) / targets.length;
+    for (const target of targets) next[target] = next[target]! + share;
+  }
+
+  return {
+    next,
+    residual: next.reduce(
+      (sum, score, slot) => sum + Math.abs(score - current[slot]!),
+      0,
+    ),
+  };
+};
+
+const runPageRank = Effect.fnUntraced(function* <N, E, K extends Graph.Kind>(
   graph: Graph.Graph<N, E, K>,
   options: PageRankOptions = {},
 ): Effect.fn.Return<PageRankResult, InvalidPageRankOptions> {
@@ -141,7 +129,12 @@ export const pageRank = Effect.fnUntraced(function* <
   const weights = new Float64Array(nodes.length);
   if (restart === undefined) {
     if (nodes.length === 0) {
-      return { scores: new Map(), iterations: 0, residual: 0, converged: true };
+      return {
+        scores: new Map(),
+        iterations: 0,
+        residual: 0,
+        converged: true,
+      };
     }
     weights.fill(1 / nodes.length);
   } else {
@@ -178,25 +171,9 @@ export const pageRank = Effect.fnUntraced(function* <
   let residual = 0;
   let iterations = 0;
   do {
-    let dangling = 0;
-    for (const [slot, targets] of outgoing.entries()) {
-      if (targets.length === 0) dangling += current[slot]!;
-    }
-
-    const next = weights.map(
-      (weight) => (1 - alpha + alpha * dangling) * weight,
-    );
-    for (const [slot, targets] of outgoing.entries()) {
-      if (targets.length === 0) continue;
-      const share = (alpha * current[slot]!) / targets.length;
-      for (const target of targets) next[target] = next[target]! + share;
-    }
-
-    residual = next.reduce(
-      (sum, score, slot) => sum + Math.abs(score - current[slot]!),
-      0,
-    );
-    current = next;
+    const step = rankStep(current, weights, outgoing, alpha);
+    current = step.next;
+    residual = step.residual;
     iterations++;
     if (residual > tolerance && iterations < maxIterations) {
       yield* Effect.yieldNow;
@@ -210,3 +187,52 @@ export const pageRank = Effect.fnUntraced(function* <
     converged: residual <= tolerance,
   };
 });
+
+/**
+ * Estimates the long-run visit probability of each node in a directed or
+ * undirected graph.
+ *
+ * **Details**
+ *
+ * Each edge contributes one possible step. Parallel edges count separately.
+ * Undirected edges allow travel both ways, with a self-loop counted once.
+ * The walk ignores edge payloads.
+ *
+ * The walk uses the same restart distribution at dead ends and for random
+ * restarts. Supply finite, non-negative weights for existing nodes, with at
+ * least one positive weight, to personalize that distribution. An empty graph
+ * returns an empty ranking when you omit restart weights. Invalid options fail
+ * with {@link InvalidPageRankOptions}.
+ *
+ * If the iteration limit is reached before convergence, the result contains
+ * the last estimate with `converged` set to `false`. The effect yields
+ * between iterations so other fibers can run and interrupt it.
+ * Pass the graph and options directly or pipe the graph into `pageRank(options)`.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as Centrality from "@repo/graph-goodies/Centrality";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.directed<string, undefined>((graph) => {
+ *   const start = Graph.addNode(graph, "Start");
+ *   const guide = Graph.addNode(graph, "Guide");
+ *   Graph.addEdge(graph, start, guide, undefined);
+ * });
+ *
+ * const result = Effect.runSync(Centrality.pageRank(graph, { alpha: 0.5 }));
+ * // Scores are approximately 0.4 for Start and 0.6 for Guide.
+ * ```
+ */
+export const pageRank: {
+  (
+    options?: PageRankOptions,
+  ): <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+  ) => Effect.Effect<PageRankResult, InvalidPageRankOptions>;
+  <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+    options?: PageRankOptions,
+  ): Effect.Effect<PageRankResult, InvalidPageRankOptions>;
+} = dual((args) => Graph.isGraph(args[0]), runPageRank);

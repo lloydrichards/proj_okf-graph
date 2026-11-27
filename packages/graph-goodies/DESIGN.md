@@ -29,6 +29,31 @@ For example, an OKF caller can turn a tag into restart weights and use PageRank 
 - Open every public module with its purpose and give each export a summary. Add **Details** for behavior the type cannot express and **Example** for a real call. Follow TaskPlan’s section style and omit Effect’s release and navigation tags.
 - Test through the public subpath with small graphs whose results can be derived by hand. Keep scratchpads focused on one comparison a reader can run.
 
+## Porting an operation to Effect Graph
+
+Use the pinned Effect Graph API as the reference for call shape and input
+semantics. Required queries use arity-based `dual`. Operations with optional
+options identify the graph argument so data-first calls can omit options.
+Graph-only operations stay unary. Use the same named input and result types
+in both call forms.
+
+The package exposes typed Effect failures. Effect Graph’s synchronous
+pathfinding operations throw `GraphError` for invalid inputs and return
+`Option.none()` for a valid search with no path. Preserve that distinction
+when porting a calculation. Keep valid empty results in the success channel.
+Use `PathResult` upstream when the operation returns its full shortest-path
+contract, including distance and edge payloads.
+
+Keep working state private. Move plain calculation steps with the operation
+and adapt validation and scheduling at the boundary. The package accepts
+immutable graphs because several algorithms yield while running. If an
+upstream operation accepts mutable graphs and calls user callbacks, follow
+Graph’s mutation guard and cache rules. [Effect Graph source](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/Graph.ts)
+
+Effect Graph already has transitive reduction. The sole-successor fast path
+is a candidate improvement to that implementation. Preserve Graph’s
+existing reduced-graph result and parallel-edge policy.
+
 ## First operations
 
 | Operation                         | Caller question                                           | Small example                                                                                            |
