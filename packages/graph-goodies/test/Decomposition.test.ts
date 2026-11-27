@@ -55,14 +55,14 @@ it.effect(
         (yield* Structure.scorePartition(fixture(2, [[0, 1]]), [[0], [1]]))
           .score,
       ).toBeUndefined();
-      expect(
-        yield* Effect.flip(
-          Structure.scorePartition(graph, [
-            [0, 1],
-            [1, 2],
-          ]),
-        ),
-      ).toMatchObject({
+      const duplicate = yield* Effect.flip(
+        Structure.scorePartition(graph, [
+          [0, 1],
+          [1, 2],
+        ]),
+      );
+      expect(duplicate).toBeInstanceOf(Structure.InvalidPartition);
+      expect(duplicate).toMatchObject({
         _tag: "InvalidPartition",
         reason: "duplicateNode",
         index: 1,

@@ -4,12 +4,9 @@
  * @module
  */
 
-import { Effect, Graph, Order, Schema } from "effect";
+import { Effect, Graph, Order, Result, Schema } from "effect";
 import * as NumericSchemas from "./internal/numericSchemas";
 import * as Partition from "./internal/partition";
-import { InvalidPartition } from "./internal/partition";
-
-export { InvalidPartition };
 
 /** Raised when a cycle prevents computing a DAG transitive reduction. */
 export class CyclicGraphError extends Schema.TaggedError<
@@ -285,6 +282,19 @@ export type NormalizedCut = {
   readonly score: number | undefined;
 };
 
+/** Raised when a partition needs a simple graph or disjoint, exhaustive groups. */
+export class InvalidPartition extends Schema.TaggedError<
+  InvalidPartition,
+  { readonly brand: unique symbol }
+>()("InvalidPartition", Partition.PartitionIssue.fields) {}
+
+const withPartitionError = <A>(
+  result: Result.Result<A, typeof Partition.PartitionIssue.Type>,
+): Effect.Effect<A, InvalidPartition> =>
+  Effect.fromResult(
+    Result.mapError(result, (issue) => new InvalidPartition(issue)),
+  );
+
 /**
  * Scores a given grouping against a baseline with the same number of randomly
  * placed edges.
@@ -300,8 +310,10 @@ export const scorePartition = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
 ): Effect.fn.Return<PartitionScore, InvalidPartition> {
-  const input = yield* Partition.readPartitionGraph(graph);
-  const membership = yield* Partition.readGroups(input.nodes, groups);
+  const input = yield* withPartitionError(Partition.readPartitionGraph(graph));
+  const membership = yield* withPartitionError(
+    Partition.readGroups(input.nodes, groups),
+  );
   const { crossingEdges } = Partition.measurePartition(
     input,
     membership,
@@ -341,8 +353,10 @@ export const normalizedCut = Effect.fnUntraced(function* <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
   partition: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
 ): Effect.fn.Return<NormalizedCut, InvalidPartition> {
-  const input = yield* Partition.readPartitionGraph(graph);
-  const membership = yield* Partition.readGroups(input.nodes, partition);
+  const input = yield* withPartitionError(Partition.readPartitionGraph(graph));
+  const membership = yield* withPartitionError(
+    Partition.readGroups(input.nodes, partition),
+  );
   const { crossingEdges, groups } = Partition.measurePartition(
     input,
     membership,
@@ -595,6 +609,6 @@ export const decomposeHierarchy = Effect.fnUntraced(function* <N, E>(
   const config = yield* Schema.decodeEffect(DecompositionConfig)(options).pipe(
     Effect.mapError(() => new InvalidDecompositionOptions()),
   );
-  const input = yield* Partition.readPartitionGraph(graph);
+  const input = yield* withPartitionError(Partition.readPartitionGraph(graph));
   return yield* decompose(input, config, config.maxDepth);
 });
