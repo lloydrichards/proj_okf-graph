@@ -182,6 +182,74 @@ const residualSearch = (
   return parents;
 };
 
+const invalidEdgeCutEndpoints = <N, E, K extends Graph.Kind>(
+  graph: Graph.Graph<N, E, K>,
+  { source, target }: EdgeCutEndpoints,
+): InvalidEdgeCutEndpoints["reason"] | undefined => {
+  if (!Graph.hasNode(graph, source)) return "unknownSource";
+  if (!Graph.hasNode(graph, target)) return "unknownTarget";
+  if (source === target) return "sameNode";
+
+  return undefined;
+};
+
+function* edgeCutSteps<N, E, K extends Graph.Kind>(
+  graph: Graph.Graph<N, E, K>,
+  { source, target }: EdgeCutEndpoints,
+): Generator<void, ReadonlySet<Graph.EdgeIndex>, void> {
+  const outgoing = new Map(
+    Array.from(Graph.nodes(graph), ([node]) => [
+      node,
+      new Array<ResidualStep>(),
+    ]),
+  );
+  const edges: FlowEdge[] = [];
+  for (const [id, link] of Graph.edges(graph)) {
+    if (link.source === link.target) continue;
+
+    const edge: FlowEdge = {
+      id,
+      source: link.source,
+      target: link.target,
+      flow: 0,
+    };
+    edges.push(edge);
+    outgoing
+      .get(edge.source)!
+      .push({ edge, from: edge.source, to: edge.target, direction: 1 });
+    outgoing
+      .get(edge.target)!
+      .push({ edge, from: edge.target, to: edge.source, direction: -1 });
+  }
+
+  // A reverse step cancels earlier flow. Undirected edges also allow one
+  // unit of net flow against their stored orientation.
+  const lowerBound = graph.type === "directed" ? 0 : -1;
+  let parents = residualSearch(outgoing, source, lowerBound);
+  while (parents.has(target)) {
+    let step = parents.get(target);
+    while (step !== undefined) {
+      step.edge.flow += step.direction;
+      step = parents.get(step.from);
+    }
+
+    yield;
+    parents = residualSearch(outgoing, source, lowerBound);
+  }
+
+  const cut = edges
+    .filter((edge) => {
+      const fromSourceSide = parents.has(edge.source);
+      const toSourceSide = parents.has(edge.target);
+      return graph.type === "directed"
+        ? fromSourceSide && !toSourceSide
+        : fromSourceSide !== toSourceSide;
+    })
+    .map((edge) => edge.id);
+
+  return new Set(cut.sort(Order.Number));
+}
+
 /**
  * Returns the original edge indices in a smallest set whose removal blocks
  * travel from source to target.
@@ -240,78 +308,70 @@ export const minimumEdgeCut: {
     endpoints: EdgeCutEndpoints,
   ): Effect.fn.Return<ReadonlySet<Graph.EdgeIndex>, InvalidEdgeCutEndpoints> {
     const { source, target } = endpoints;
-    if (!Graph.hasNode(graph, source)) {
-      return yield* new InvalidEdgeCutEndpoints({
-        source,
-        target,
-        reason: "unknownSource",
-      });
-    }
-    if (!Graph.hasNode(graph, target)) {
-      return yield* new InvalidEdgeCutEndpoints({
-        source,
-        target,
-        reason: "unknownTarget",
-      });
-    }
-    if (source === target) {
-      return yield* new InvalidEdgeCutEndpoints({
-        source,
-        target,
-        reason: "sameNode",
-      });
+    const query = { source, target };
+    const reason = invalidEdgeCutEndpoints(graph, query);
+    if (reason !== undefined) {
+      return yield* new InvalidEdgeCutEndpoints({ source, target, reason });
     }
 
-    const outgoing = new Map(
-      Array.from(Graph.nodes(graph), ([node]) => [
-        node,
-        new Array<ResidualStep>(),
-      ]),
-    );
-    const edges: FlowEdge[] = [];
-    for (const [id, link] of Graph.edges(graph)) {
-      if (link.source === link.target) continue;
-
-      const edge: FlowEdge = {
-        id,
-        source: link.source,
-        target: link.target,
-        flow: 0,
-      };
-      edges.push(edge);
-      outgoing
-        .get(edge.source)!
-        .push({ edge, from: edge.source, to: edge.target, direction: 1 });
-      outgoing
-        .get(edge.target)!
-        .push({ edge, from: edge.target, to: edge.source, direction: -1 });
-    }
-
-    // A reverse step cancels earlier flow. Undirected edges also allow one
-    // unit of net flow against their stored orientation.
-    const lowerBound = graph.type === "directed" ? 0 : -1;
-    let parents = residualSearch(outgoing, source, lowerBound);
-    while (parents.has(target)) {
-      let step = parents.get(target);
-      while (step !== undefined) {
-        step.edge.flow += step.direction;
-        step = parents.get(step.from);
-      }
-
+    const steps = edgeCutSteps(graph, query);
+    let step = steps.next();
+    while (!step.done) {
       yield* Effect.yieldNow;
-      parents = residualSearch(outgoing, source, lowerBound);
+      step = steps.next();
     }
 
-    const cut = edges
-      .filter((edge) => {
-        const fromSourceSide = parents.has(edge.source);
-        const toSourceSide = parents.has(edge.target);
-        return graph.type === "directed"
-          ? fromSourceSide && !toSourceSide
-          : fromSourceSide !== toSourceSide;
-      })
-      .map((edge) => edge.id);
-
-    return new Set(cut.sort(Order.Number));
+    return step.value;
   }),
+);
+
+/**
+ * Computes a minimum edge cut synchronously.
+ *
+ * **Details**
+ *
+ * Uses the same cut, edge ordering, and empty-result rules as
+ * {@link minimumEdgeCut}. Throws `Graph.GraphError` when either endpoint
+ * is missing or when the endpoints are identical. Use either
+ * `minimumEdgeCutSync(graph, endpoints)` or
+ * `graph.pipe(minimumEdgeCutSync(endpoints))`.
+ */
+export const minimumEdgeCutSync: {
+  (
+    endpoints: EdgeCutEndpoints,
+  ): <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+  ) => ReadonlySet<Graph.EdgeIndex>;
+  <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+    endpoints: EdgeCutEndpoints,
+  ): ReadonlySet<Graph.EdgeIndex>;
+} = dual(
+  2,
+  <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+    endpoints: EdgeCutEndpoints,
+  ): ReadonlySet<Graph.EdgeIndex> => {
+    const { source, target } = endpoints;
+    switch (invalidEdgeCutEndpoints(graph, endpoints)) {
+      case "unknownSource":
+        throw new Graph.GraphError({
+          message: `Node ${source} does not exist`,
+        });
+      case "unknownTarget":
+        throw new Graph.GraphError({
+          message: `Node ${target} does not exist`,
+        });
+      case "sameNode":
+        throw new Graph.GraphError({
+          message: "Minimum edge cut requires distinct endpoints",
+        });
+    }
+
+    const steps = edgeCutSteps(graph, endpoints);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+
+    return step.value;
+  },
 );

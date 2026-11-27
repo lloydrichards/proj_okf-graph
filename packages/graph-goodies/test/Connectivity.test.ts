@@ -203,3 +203,50 @@ it.effect("rejects unknown or identical endpoints", () =>
     }
   }),
 );
+
+it("returns the same synchronous cut in both call forms", () => {
+  const graph = Graph.undirected<number, undefined>((graph) => {
+    const source = Graph.addNode(graph, 0);
+    const target = Graph.addNode(graph, 1);
+    Graph.addEdge(graph, source, target, undefined);
+    Graph.addEdge(graph, target, source, undefined);
+  });
+  const endpoints = { source: 0, target: 1 };
+
+  expect([...Connectivity.minimumEdgeCutSync(graph, endpoints)]).toEqual([
+    0, 1,
+  ]);
+  expect([...graph.pipe(Connectivity.minimumEdgeCutSync(endpoints))]).toEqual([
+    0, 1,
+  ]);
+});
+
+it("throws GraphError for invalid endpoints in either synchronous call form", () => {
+  const graph = Graph.directed<number, undefined>((graph) => {
+    Graph.addNode(graph, 0);
+  });
+  for (const endpoints of [
+    { source: 1, target: 0 },
+    { source: 0, target: 1 },
+    { source: 0, target: 0 },
+  ]) {
+    expect(() => Connectivity.minimumEdgeCutSync(graph, endpoints)).toThrow(
+      Graph.GraphError,
+    );
+    expect(() =>
+      graph.pipe(Connectivity.minimumEdgeCutSync(endpoints)),
+    ).toThrow(Graph.GraphError);
+  }
+});
+
+it("returns an empty synchronous cut when the target is already unreachable", () => {
+  const graph = Graph.directed<number, undefined>((graph) => {
+    const source = Graph.addNode(graph, 0);
+    const target = Graph.addNode(graph, 1);
+    Graph.addEdge(graph, target, source, undefined);
+  });
+
+  expect(
+    Connectivity.minimumEdgeCutSync(graph, { source: 0, target: 1 }).size,
+  ).toBe(0);
+});
