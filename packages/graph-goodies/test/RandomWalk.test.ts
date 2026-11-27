@@ -110,3 +110,27 @@ it.effect("reports invalid horizons and unknown endpoints", () =>
     }
   }),
 );
+
+it.effect(
+  "preserves subnormal probability across parallel edges to the same target",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.directed<number, undefined>((graph) => {
+        const start = Graph.addNode(graph, 0);
+        const via = Graph.addNode(graph, 1);
+        const goal = Graph.addNode(graph, 2);
+        Graph.addEdge(graph, start, start, undefined);
+        Graph.addEdge(graph, start, via, undefined);
+        Graph.addEdge(graph, via, goal, undefined);
+        Graph.addEdge(graph, via, goal, undefined);
+      });
+
+      const result = yield* RandomWalk.firstHitWithin(graph, {
+        source: 0,
+        targets: [2],
+        maxSteps: 1075,
+      });
+
+      expect(result.hitsByStep.get(1075)?.get(2)).toBe(Number.MIN_VALUE);
+    }),
+);
