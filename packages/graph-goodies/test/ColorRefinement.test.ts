@@ -121,3 +121,22 @@ it.effect("counts an undirected self-loop exactly once", () =>
     expect(colors.get(0)).not.toBe(colors.get(3));
   }),
 );
+
+it.effect(
+  "refines a graph in a pipeline with a typed label or default options",
+  () =>
+    Effect.gen(function* () {
+      const graph = Graph.directed<string, undefined>((graph) => {
+        const a = Graph.addNode(graph, "a");
+        const b = Graph.addNode(graph, "b");
+        Graph.addEdge(graph, a, b, undefined);
+      });
+      const options = { label: (value: string) => value, maxRounds: 0 };
+      expect(yield* graph.pipe(Structure.refineColors(options))).toEqual(
+        yield* Structure.refineColors(graph, options),
+      );
+      expect(yield* graph.pipe(Structure.refineColors())).toEqual(
+        yield* Structure.refineColors(graph),
+      );
+    }),
+);

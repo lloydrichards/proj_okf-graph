@@ -5,6 +5,7 @@
  */
 
 import { Effect, Graph, Order, Schema } from "effect";
+import { dual } from "effect/Function";
 
 /** A connectivity query names a start node that is absent from the graph. */
 export class UnknownStartNode extends Schema.TaggedError<
@@ -12,52 +13,10 @@ export class UnknownStartNode extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >()("UnknownStartNode", { start: Schema.Number }) {}
 
-/**
- * Returns the nodes that every directed path from `start` to each reachable
- * node must visit.
- *
- * **Details**
- *
- * The map includes the start node, whose only dominator is itself. Every other
- * reachable node also dominates itself. Unreachable nodes have no map entry.
- * Parallel edges and self-loops do not change which nodes dominate a target.
- * A missing start fails with {@link UnknownStartNode}.
- *
- * The calculation intersects predecessor sets until they stop shrinking. It
- * can use quadratic space in the number of reachable nodes when many nodes
- * dominate each other, as in a long chain.
- *
- * **Example**
- *
- * ```ts
- * import * as Connectivity from "@repo/graph-goodies/Connectivity";
- * import { Effect, Graph } from "effect";
- *
- * const graph = Graph.directed<string, undefined>();
- * const mutable = Graph.beginMutation(graph);
- * const start = Graph.addNode(mutable, "Start");
- * const bridge = Graph.addNode(mutable, "Bridge");
- * const end = Graph.addNode(mutable, "End");
- * Graph.addEdge(mutable, start, bridge, undefined);
- * Graph.addEdge(mutable, bridge, end, undefined);
- *
- * const result = Effect.runSync(
- *   Connectivity.dominators(Graph.endMutation(mutable), start),
- * );
- * // result.get(end) contains start, bridge, and end.
- * ```
- */
-export const dominators = Effect.fnUntraced(function* <N, E>(
+const computeDominators = <N, E>(
   graph: Graph.DirectedGraph<N, E>,
   start: Graph.NodeIndex,
-): Effect.fn.Return<
-  ReadonlyMap<Graph.NodeIndex, ReadonlySet<Graph.NodeIndex>>,
-  UnknownStartNode
-> {
-  if (!Graph.hasNode(graph, start)) {
-    return yield* new UnknownStartNode({ start });
-  }
-
+): ReadonlyMap<Graph.NodeIndex, ReadonlySet<Graph.NodeIndex>> => {
   const reachable = new Set(
     Graph.indices(Graph.bfs(graph, { start: [start] })),
   );
@@ -101,7 +60,80 @@ export const dominators = Effect.fnUntraced(function* <N, E>(
   } while (changed);
 
   return result;
-});
+};
+
+/**
+ * Returns the nodes that every directed path from `start` to each reachable
+ * node must visit.
+ *
+ * **Details**
+ *
+ * The map includes the start node, whose only dominator is itself. Every other
+ * reachable node also dominates itself. Unreachable nodes have no map entry.
+ * Parallel edges and self-loops do not change which nodes dominate a target.
+ * A missing start fails with {@link UnknownStartNode}.
+ *
+ * The calculation intersects predecessor sets until they stop shrinking. It
+ * can use quadratic space in the number of reachable nodes when many nodes
+ * dominate each other, as in a long chain.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as Connectivity from "@repo/graph-goodies/Connectivity";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.directed<string, undefined>();
+ * const mutable = Graph.beginMutation(graph);
+ * const start = Graph.addNode(mutable, "Start");
+ * const bridge = Graph.addNode(mutable, "Bridge");
+ * const end = Graph.addNode(mutable, "End");
+ * Graph.addEdge(mutable, start, bridge, undefined);
+ * Graph.addEdge(mutable, bridge, end, undefined);
+ *
+ * const result = Effect.runSync(
+ *   Graph.endMutation(mutable).pipe(Connectivity.dominators(start)),
+ * );
+ * // result.get(end) contains start, bridge, and end.
+ * ```
+ */
+export const dominators: {
+  (
+    start: Graph.NodeIndex,
+  ): <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+  ) => Effect.Effect<
+    ReadonlyMap<Graph.NodeIndex, ReadonlySet<Graph.NodeIndex>>,
+    UnknownStartNode
+  >;
+  <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    start: Graph.NodeIndex,
+  ): Effect.Effect<
+    ReadonlyMap<Graph.NodeIndex, ReadonlySet<Graph.NodeIndex>>,
+    UnknownStartNode
+  >;
+} = dual(
+  2,
+  Effect.fnUntraced(function* <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    start: Graph.NodeIndex,
+  ): Effect.fn.Return<
+    ReadonlyMap<Graph.NodeIndex, ReadonlySet<Graph.NodeIndex>>,
+    UnknownStartNode
+  > {
+    if (!Graph.hasNode(graph, start)) {
+      return yield* new UnknownStartNode({ start });
+    }
+
+    return computeDominators(graph, start);
+  }),
+);
+
+type EdgeCutEndpoints = {
+  readonly source: Graph.NodeIndex;
+  readonly target: Graph.NodeIndex;
+};
 
 /** A minimum edge cut needs two distinct nodes that exist in the graph. */
 export class InvalidEdgeCutEndpoints extends Schema.TaggedError<
@@ -191,89 +223,95 @@ const residualSearch = (
  * // cut is Set { 0, 2 }. Removing one link from each route blocks access.
  * ```
  */
-export const minimumEdgeCut = Effect.fnUntraced(function* <
-  N,
-  E,
-  K extends Graph.Kind,
->(
-  graph: Graph.Graph<N, E, K>,
-  endpoints: {
-    readonly source: Graph.NodeIndex;
-    readonly target: Graph.NodeIndex;
-  },
-): Effect.fn.Return<ReadonlySet<Graph.EdgeIndex>, InvalidEdgeCutEndpoints> {
-  const { source, target } = endpoints;
-  if (!Graph.hasNode(graph, source)) {
-    return yield* new InvalidEdgeCutEndpoints({
-      source,
-      target,
-      reason: "unknownSource",
-    });
-  }
-  if (!Graph.hasNode(graph, target)) {
-    return yield* new InvalidEdgeCutEndpoints({
-      source,
-      target,
-      reason: "unknownTarget",
-    });
-  }
-  if (source === target) {
-    return yield* new InvalidEdgeCutEndpoints({
-      source,
-      target,
-      reason: "sameNode",
-    });
-  }
-
-  const outgoing = new Map(
-    Array.from(Graph.nodes(graph), ([node]) => [
-      node,
-      new Array<ResidualStep>(),
-    ]),
-  );
-  const edges: FlowEdge[] = [];
-  for (const [id, link] of Graph.edges(graph)) {
-    if (link.source === link.target) continue;
-
-    const edge: FlowEdge = {
-      id,
-      source: link.source,
-      target: link.target,
-      flow: 0,
-    };
-    edges.push(edge);
-    outgoing
-      .get(edge.source)!
-      .push({ edge, from: edge.source, to: edge.target, direction: 1 });
-    outgoing
-      .get(edge.target)!
-      .push({ edge, from: edge.target, to: edge.source, direction: -1 });
-  }
-
-  // A reverse step cancels earlier flow. Undirected edges also allow one
-  // unit of net flow against their stored orientation.
-  const lowerBound = graph.type === "directed" ? 0 : -1;
-  let parents = residualSearch(outgoing, source, lowerBound);
-  while (parents.has(target)) {
-    let step = parents.get(target);
-    while (step !== undefined) {
-      step.edge.flow += step.direction;
-      step = parents.get(step.from);
+export const minimumEdgeCut: {
+  (
+    endpoints: EdgeCutEndpoints,
+  ): <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+  ) => Effect.Effect<ReadonlySet<Graph.EdgeIndex>, InvalidEdgeCutEndpoints>;
+  <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+    endpoints: EdgeCutEndpoints,
+  ): Effect.Effect<ReadonlySet<Graph.EdgeIndex>, InvalidEdgeCutEndpoints>;
+} = dual(
+  2,
+  Effect.fnUntraced(function* <N, E, K extends Graph.Kind>(
+    graph: Graph.Graph<N, E, K>,
+    endpoints: EdgeCutEndpoints,
+  ): Effect.fn.Return<ReadonlySet<Graph.EdgeIndex>, InvalidEdgeCutEndpoints> {
+    const { source, target } = endpoints;
+    if (!Graph.hasNode(graph, source)) {
+      return yield* new InvalidEdgeCutEndpoints({
+        source,
+        target,
+        reason: "unknownSource",
+      });
+    }
+    if (!Graph.hasNode(graph, target)) {
+      return yield* new InvalidEdgeCutEndpoints({
+        source,
+        target,
+        reason: "unknownTarget",
+      });
+    }
+    if (source === target) {
+      return yield* new InvalidEdgeCutEndpoints({
+        source,
+        target,
+        reason: "sameNode",
+      });
     }
 
-    yield* Effect.yieldNow;
-    parents = residualSearch(outgoing, source, lowerBound);
-  }
+    const outgoing = new Map(
+      Array.from(Graph.nodes(graph), ([node]) => [
+        node,
+        new Array<ResidualStep>(),
+      ]),
+    );
+    const edges: FlowEdge[] = [];
+    for (const [id, link] of Graph.edges(graph)) {
+      if (link.source === link.target) continue;
 
-  const cut = edges
-    .filter((edge) => {
-      const fromSourceSide = parents.has(edge.source);
-      const toSourceSide = parents.has(edge.target);
-      return graph.type === "directed"
-        ? fromSourceSide && !toSourceSide
-        : fromSourceSide !== toSourceSide;
-    })
-    .map((edge) => edge.id);
+      const edge: FlowEdge = {
+        id,
+        source: link.source,
+        target: link.target,
+        flow: 0,
+      };
+      edges.push(edge);
+      outgoing
+        .get(edge.source)!
+        .push({ edge, from: edge.source, to: edge.target, direction: 1 });
+      outgoing
+        .get(edge.target)!
+        .push({ edge, from: edge.target, to: edge.source, direction: -1 });
+    }
 
-  return new Set(cut.sort(Order.Number));
-});
+    // A reverse step cancels earlier flow. Undirected edges also allow one
+    // unit of net flow against their stored orientation.
+    const lowerBound = graph.type === "directed" ? 0 : -1;
+    let parents = residualSearch(outgoing, source, lowerBound);
+    while (parents.has(target)) {
+      let step = parents.get(target);
+      while (step !== undefined) {
+        step.edge.flow += step.direction;
+        step = parents.get(step.from);
+      }
+
+      yield* Effect.yieldNow;
+      parents = residualSearch(outgoing, source, lowerBound);
+    }
+
+    const cut = edges
+      .filter((edge) => {
+        const fromSourceSide = parents.has(edge.source);
+        const toSourceSide = parents.has(edge.target);
+        return graph.type === "directed"
+          ? fromSourceSide && !toSourceSide
+          : fromSourceSide !== toSourceSide;
+      })
+      .map((edge) => edge.id);
+
+    return new Set(cut.sort(Order.Number));
+  }),
+);

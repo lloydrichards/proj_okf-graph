@@ -293,3 +293,42 @@ it.effect(
       expect(measured.crossingEdges).toEqual(tree.crossingEdges);
     }),
 );
+
+it.effect("scores partitions in a graph pipeline", () =>
+  Effect.gen(function* () {
+    const graph = fixture(4, [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+    ]);
+    const groups = [
+      [0, 1],
+      [2, 3],
+    ];
+    expect(yield* graph.pipe(Structure.scorePartition(groups))).toEqual(
+      yield* Structure.scorePartition(graph, groups),
+    );
+    expect(yield* graph.pipe(Structure.normalizedCut(groups))).toEqual(
+      yield* Structure.normalizedCut(graph, groups),
+    );
+  }),
+);
+
+it.effect(
+  "decomposes a graph in a pipeline with explicit or default options",
+  () =>
+    Effect.gen(function* () {
+      const graph = fixture(4, [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+      ]);
+      const options = { maxDepth: 1 };
+      expect(yield* graph.pipe(Structure.decomposeHierarchy(options))).toEqual(
+        yield* Structure.decomposeHierarchy(graph, options),
+      );
+      expect(yield* graph.pipe(Structure.decomposeHierarchy())).toEqual(
+        yield* Structure.decomposeHierarchy(graph),
+      );
+    }),
+);

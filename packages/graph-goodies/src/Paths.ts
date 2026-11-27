@@ -5,6 +5,7 @@
  */
 
 import { Effect, Equal, Graph, Option, Order, Schema } from "effect";
+import { dual } from "effect/Function";
 
 /** Specifies the endpoints and edge labels a directed walk must follow in order. */
 export type TypedPathQuery<E, L> = {
@@ -48,53 +49,10 @@ const toTypedPath = (end: Step): TypedPath => {
   return { nodes: nodes.reverse(), edges: edges.reverse() };
 };
 
-/**
- * Finds a directed walk whose edge labels exactly match the requested sequence.
- *
- * **Details**
- *
- * Labels are compared with `Equal.equals`. Nodes and edges may repeat. An
- * empty sequence matches a zero-edge walk when both endpoints are the same.
- * When multiple walks match, the earliest sequence by ascending edge indices
- * wins. An existing pair of endpoints with no match returns `Option.none()`.
- *
- * **Example**
- *
- * ```ts
- * import * as Paths from "@repo/graph-goodies/Paths";
- * import { Effect, Graph } from "effect";
- *
- * const graph = Graph.directed<string, string>((graph) => {
- *   const intro = Graph.addNode(graph, "Intro");
- *   const guide = Graph.addNode(graph, "Guide");
- *   Graph.addEdge(graph, intro, guide, "explains");
- * });
- *
- * const result = Effect.runSync(Paths.findTypedPath(graph, {
- *   source: 0,
- *   target: 1,
- *   labels: ["explains"],
- *   label: (edge) => edge,
- * }));
- * // Option.some({ nodes: [0, 1], edges: [0] })
- * ```
- */
-export const findTypedPath = Effect.fnUntraced(function* <N, E, L>(
+const findMatchingWalk = <N, E, L>(
   graph: Graph.DirectedGraph<N, E>,
   query: TypedPathQuery<E, L>,
-): Effect.fn.Return<Option.Option<TypedPath>, UnknownPathEndpoint> {
-  if (!Graph.hasNode(graph, query.source)) {
-    return yield* new UnknownPathEndpoint({
-      endpoint: "source",
-      node: query.source,
-    });
-  }
-  if (!Graph.hasNode(graph, query.target)) {
-    return yield* new UnknownPathEndpoint({
-      endpoint: "target",
-      node: query.target,
-    });
-  }
+): Option.Option<TypedPath> => {
   if (query.labels.length === 0) {
     return query.source === query.target
       ? Option.some({ nodes: [query.source], edges: [] })
@@ -135,7 +93,70 @@ export const findTypedPath = Effect.fnUntraced(function* <N, E, L>(
     Option.fromUndefinedOr(frontier.get(query.target)),
     toTypedPath,
   );
-});
+};
+
+/**
+ * Finds a directed walk whose edge labels exactly match the requested sequence.
+ *
+ * **Details**
+ *
+ * Labels are compared with `Equal.equals`. Nodes and edges may repeat. An
+ * empty sequence matches a zero-edge walk when both endpoints are the same.
+ * When multiple walks match, the earliest sequence by ascending edge indices
+ * wins. An existing pair of endpoints with no match returns `Option.none()`.
+ *
+ * **Example**
+ *
+ * ```ts
+ * import * as Paths from "@repo/graph-goodies/Paths";
+ * import { Effect, Graph } from "effect";
+ *
+ * const graph = Graph.directed<string, string>((graph) => {
+ *   const intro = Graph.addNode(graph, "Intro");
+ *   const guide = Graph.addNode(graph, "Guide");
+ *   Graph.addEdge(graph, intro, guide, "explains");
+ * });
+ *
+ * const result = Effect.runSync(Paths.findTypedPath(graph, {
+ *   source: 0,
+ *   target: 1,
+ *   labels: ["explains"],
+ *   label: (edge) => edge,
+ * }));
+ * // Option.some({ nodes: [0, 1], edges: [0] })
+ * ```
+ */
+export const findTypedPath: {
+  <E, L>(
+    query: TypedPathQuery<E, L>,
+  ): <N>(
+    graph: Graph.DirectedGraph<N, E>,
+  ) => Effect.Effect<Option.Option<TypedPath>, UnknownPathEndpoint>;
+  <N, E, L>(
+    graph: Graph.DirectedGraph<N, E>,
+    query: TypedPathQuery<E, L>,
+  ): Effect.Effect<Option.Option<TypedPath>, UnknownPathEndpoint>;
+} = dual(
+  2,
+  Effect.fnUntraced(function* <N, E, L>(
+    graph: Graph.DirectedGraph<N, E>,
+    query: TypedPathQuery<E, L>,
+  ): Effect.fn.Return<Option.Option<TypedPath>, UnknownPathEndpoint> {
+    if (!Graph.hasNode(graph, query.source)) {
+      return yield* new UnknownPathEndpoint({
+        endpoint: "source",
+        node: query.source,
+      });
+    }
+    if (!Graph.hasNode(graph, query.target)) {
+      return yield* new UnknownPathEndpoint({
+        endpoint: "target",
+        node: query.target,
+      });
+    }
+    return findMatchingWalk(graph, query);
+  }),
+);
 
 /** A tree represented by its original node and edge indices in ascending order. */
 export type SteinerTree = {
@@ -212,64 +233,77 @@ const nearestTerminal = (
  * });
  *
  * const result = await Effect.runPromise(
- *   Paths.approximateSteinerTree(graph, [1, 2, 3]),
+ *   graph.pipe(Paths.approximateSteinerTree([1, 2, 3])),
  * );
  * // Option.some({ nodes: [0, 1, 2, 3], edges: [0, 1, 2] })
  * ```
  */
-export const approximateSteinerTree = Effect.fnUntraced(function* <N, E>(
-  graph: Graph.UndirectedGraph<N, E>,
-  terminals: ReadonlyArray<Graph.NodeIndex>,
-): Effect.fn.Return<Option.Option<SteinerTree>, UnknownSteinerTerminal> {
-  const ordered = Array.from(new Set(terminals)).sort(Order.Number);
-  for (const terminal of ordered) {
-    if (!Graph.hasNode(graph, terminal)) {
-      return yield* new UnknownSteinerTerminal({ terminal });
+export const approximateSteinerTree: {
+  (
+    terminals: ReadonlyArray<Graph.NodeIndex>,
+  ): <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+  ) => Effect.Effect<Option.Option<SteinerTree>, UnknownSteinerTerminal>;
+  <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+    terminals: ReadonlyArray<Graph.NodeIndex>,
+  ): Effect.Effect<Option.Option<SteinerTree>, UnknownSteinerTerminal>;
+} = dual(
+  2,
+  Effect.fnUntraced(function* <N, E>(
+    graph: Graph.UndirectedGraph<N, E>,
+    terminals: ReadonlyArray<Graph.NodeIndex>,
+  ): Effect.fn.Return<Option.Option<SteinerTree>, UnknownSteinerTerminal> {
+    const ordered = Array.from(new Set(terminals)).sort(Order.Number);
+    for (const terminal of ordered) {
+      if (!Graph.hasNode(graph, terminal)) {
+        return yield* new UnknownSteinerTerminal({ terminal });
+      }
     }
-  }
-  if (ordered.length < 2) {
-    return Option.some({ nodes: ordered, edges: [] });
-  }
-
-  const adjacency = new Map<Graph.NodeIndex, ReadonlyArray<Neighbor>>();
-  const neighborsOf = (node: Graph.NodeIndex): ReadonlyArray<Neighbor> => {
-    const cached = adjacency.get(node);
-    if (cached !== undefined) return cached;
-
-    const neighbors = Graph.incidentEdges(graph, node)
-      .sort(Order.Number)
-      .flatMap((edge) => {
-        const { source, target } = Option.getOrThrow(
-          Graph.getEdge(graph, edge),
-        );
-        if (source === target) return [];
-        return [{ node: source === node ? target : source, edge }];
-      });
-    adjacency.set(node, neighbors);
-    return neighbors;
-  };
-
-  const [start, ...unconnected] = ordered;
-  const remaining = new Set(unconnected);
-  const nodes = new Set([start!]);
-  const edges: Array<Graph.EdgeIndex> = [];
-  while (remaining.size > 0) {
-    let step = nearestTerminal(neighborsOf, nodes, remaining);
-    if (step === undefined) return Option.none();
-
-    remaining.delete(step.node);
-    // Every tree node is already a BFS root, so the new path meets the tree
-    // only at its root and cannot introduce a cycle.
-    while (step.via !== undefined) {
-      nodes.add(step.node);
-      edges.push(step.via.edge);
-      step = step.via.previous;
+    if (ordered.length < 2) {
+      return Option.some({ nodes: ordered, edges: [] });
     }
-    yield* Effect.yieldNow;
-  }
 
-  return Option.some({
-    nodes: Array.from(nodes).sort(Order.Number),
-    edges: edges.sort(Order.Number),
-  });
-});
+    const adjacency = new Map<Graph.NodeIndex, ReadonlyArray<Neighbor>>();
+    const neighborsOf = (node: Graph.NodeIndex): ReadonlyArray<Neighbor> => {
+      const cached = adjacency.get(node);
+      if (cached !== undefined) return cached;
+
+      const neighbors = Graph.incidentEdges(graph, node)
+        .sort(Order.Number)
+        .flatMap((edge) => {
+          const { source, target } = Option.getOrThrow(
+            Graph.getEdge(graph, edge),
+          );
+          if (source === target) return [];
+          return [{ node: source === node ? target : source, edge }];
+        });
+      adjacency.set(node, neighbors);
+      return neighbors;
+    };
+
+    const [start, ...unconnected] = ordered;
+    const remaining = new Set(unconnected);
+    const nodes = new Set([start!]);
+    const edges: Array<Graph.EdgeIndex> = [];
+    while (remaining.size > 0) {
+      let step = nearestTerminal(neighborsOf, nodes, remaining);
+      if (step === undefined) return Option.none();
+
+      remaining.delete(step.node);
+      // Every tree node is already a BFS root, so the new path meets the tree
+      // only at its root and cannot introduce a cycle.
+      while (step.via !== undefined) {
+        nodes.add(step.node);
+        edges.push(step.via.edge);
+        step = step.via.previous;
+      }
+      yield* Effect.yieldNow;
+    }
+
+    return Option.some({
+      nodes: Array.from(nodes).sort(Order.Number),
+      edges: edges.sort(Order.Number),
+    });
+  }),
+);

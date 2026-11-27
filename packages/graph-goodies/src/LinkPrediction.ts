@@ -5,6 +5,7 @@
  */
 
 import { Effect, Graph, Order, Schema } from "effect";
+import { dual } from "effect/Function";
 
 /** A proposed target with the intermediate nodes that connect it to the source. */
 export type TwoHopCandidate = {
@@ -79,7 +80,8 @@ const collectTwoHopEvidence = <N, E>(
  * Parallel edges count as one connection between the same nodes. Candidates
  * are ordered by decreasing number of distinct intermediates, then by
  * ascending target index. A known source with no candidates returns an empty
- * array.
+ * array. Pass the graph and source directly or pipe the graph into
+ * `twoHopCandidates(source)`.
  *
  * **Example**
  *
@@ -99,21 +101,37 @@ const collectTwoHopEvidence = <N, E>(
  * // [{ target: 2, intermediates: [1] }]
  * ```
  */
-export const twoHopCandidates = Effect.fnUntraced(function* <N, E>(
-  graph: Graph.DirectedGraph<N, E>,
-  source: Graph.NodeIndex,
-): Effect.fn.Return<
-  ReadonlyArray<TwoHopCandidate>,
-  UnknownLinkPredictionSource
-> {
-  if (!Graph.hasNode(graph, source)) {
-    return yield* new UnknownLinkPredictionSource({ source });
-  }
+export const twoHopCandidates: {
+  (
+    source: Graph.NodeIndex,
+  ): <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+  ) => Effect.Effect<
+    ReadonlyArray<TwoHopCandidate>,
+    UnknownLinkPredictionSource
+  >;
+  <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    source: Graph.NodeIndex,
+  ): Effect.Effect<ReadonlyArray<TwoHopCandidate>, UnknownLinkPredictionSource>;
+} = dual(
+  2,
+  Effect.fnUntraced(function* <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    source: Graph.NodeIndex,
+  ): Effect.fn.Return<
+    ReadonlyArray<TwoHopCandidate>,
+    UnknownLinkPredictionSource
+  > {
+    if (!Graph.hasNode(graph, source)) {
+      return yield* new UnknownLinkPredictionSource({ source });
+    }
 
-  return collectTwoHopEvidence(graph, source).candidates.sort(
-    candidatesBySupport,
-  );
-});
+    return collectTwoHopEvidence(graph, source).candidates.sort(
+      candidatesBySupport,
+    );
+  }),
+);
 
 const candidatesByScore = Order.combine(
   Order.flip(
@@ -136,28 +154,49 @@ const candidatesByScore = Order.combine(
  * Uses the same candidates and witnesses as {@link twoHopCandidates}. Each
  * witness contributes one divided by its number of distinct successors,
  * including successors that are ineligible as candidates. Parallel links
- * count once towards that degree. Contributions are summed in ascending degree order. Results sort by decreasing score, then
- * ascending target index for equal scores.
+ * count once towards that degree. Contributions are summed in ascending degree
+ * order. Results sort by decreasing score, then ascending target index for
+ * equal scores. Pass the graph and source directly or pipe the graph into
+ * `rankTwoHopCandidates(source)`.
  */
-export const rankTwoHopCandidates = Effect.fnUntraced(function* <N, E>(
-  graph: Graph.DirectedGraph<N, E>,
-  source: Graph.NodeIndex,
-): Effect.fn.Return<
-  ReadonlyArray<RankedTwoHopCandidate>,
-  UnknownLinkPredictionSource
-> {
-  if (!Graph.hasNode(graph, source)) {
-    return yield* new UnknownLinkPredictionSource({ source });
-  }
+export const rankTwoHopCandidates: {
+  (
+    source: Graph.NodeIndex,
+  ): <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+  ) => Effect.Effect<
+    ReadonlyArray<RankedTwoHopCandidate>,
+    UnknownLinkPredictionSource
+  >;
+  <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    source: Graph.NodeIndex,
+  ): Effect.Effect<
+    ReadonlyArray<RankedTwoHopCandidate>,
+    UnknownLinkPredictionSource
+  >;
+} = dual(
+  2,
+  Effect.fnUntraced(function* <N, E>(
+    graph: Graph.DirectedGraph<N, E>,
+    source: Graph.NodeIndex,
+  ): Effect.fn.Return<
+    ReadonlyArray<RankedTwoHopCandidate>,
+    UnknownLinkPredictionSource
+  > {
+    if (!Graph.hasNode(graph, source)) {
+      return yield* new UnknownLinkPredictionSource({ source });
+    }
 
-  const { candidates, degrees } = collectTwoHopEvidence(graph, source);
-  return candidates
-    .map((candidate) => ({
-      ...candidate,
-      score: candidate.intermediates
-        .map((intermediate) => degrees.get(intermediate)!)
-        .sort(Order.Number)
-        .reduce((score, degree) => score + 1 / degree, 0),
-    }))
-    .sort(candidatesByScore);
-});
+    const { candidates, degrees } = collectTwoHopEvidence(graph, source);
+    return candidates
+      .map((candidate) => ({
+        ...candidate,
+        score: candidate.intermediates
+          .map((intermediate) => degrees.get(intermediate)!)
+          .sort(Order.Number)
+          .reduce((score, degree) => score + 1 / degree, 0),
+      }))
+      .sort(candidatesByScore);
+  }),
+);

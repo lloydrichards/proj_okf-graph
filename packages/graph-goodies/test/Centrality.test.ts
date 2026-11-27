@@ -11,7 +11,7 @@ const directed = Graph.directed<string, undefined>((graph) => {
 describe("pageRank", () => {
   it("ranks a directed edge and redistributes dead-end mass", () => {
     const result = Effect.runSync(
-      Centrality.pageRank(directed, { alpha: 0.5 }),
+      directed.pipe(Centrality.pageRank({ alpha: 0.5 })),
     );
     expect(result.converged).toBe(true);
     expect(result.scores.get(0)).toBeCloseTo(0.4, 5);
@@ -136,6 +136,19 @@ describe("pageRank", () => {
     );
     expect(result.scores.get(0)).toBe(0.75);
     expect(result.scores.get(1)).toBe(0.25);
+  });
+
+  it("uses the same defaults with or without a pipeline", () => {
+    const defaults = Effect.runSync(Centrality.pageRank(directed));
+    expect(Effect.runSync(Centrality.pageRank(directed, undefined))).toEqual(
+      defaults,
+    );
+    expect(Effect.runSync(directed.pipe(Centrality.pageRank()))).toEqual(
+      defaults,
+    );
+    expect(
+      Effect.runSync(directed.pipe(Centrality.pageRank(undefined))),
+    ).toEqual(defaults);
   });
 
   it("returns an empty ranking for an empty graph", () => {

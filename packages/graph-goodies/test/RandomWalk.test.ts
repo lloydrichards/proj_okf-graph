@@ -14,11 +14,9 @@ it.effect(
         Graph.addEdge(graph, goal, start, undefined);
       });
 
-      const result = yield* RandomWalk.firstHitWithin(graph, {
-        source: 0,
-        targets: [1],
-        maxSteps: 3,
-      });
+      const result = yield* graph.pipe(
+        RandomWalk.firstHitWithin({ source: 0, targets: [1], maxSteps: 3 }),
+      );
 
       expect(result).toEqual({
         hitsByStep: new Map([

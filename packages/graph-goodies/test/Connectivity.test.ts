@@ -90,8 +90,14 @@ it.effect("finds a two-edge cut when neither intermediate node dominates", () =>
       target: 3,
     });
 
+    const pipedDominators = yield* graph.pipe(Connectivity.dominators(0));
+    const pipedCut = yield* graph.pipe(
+      Connectivity.minimumEdgeCut({ source: 0, target: 3 }),
+    );
     expect(dominators.get(3)).toEqual(new Set([0, 3]));
+    expect(pipedDominators).toEqual(dominators);
     expect([...cut]).toEqual([0, 2]);
+    expect([...pipedCut]).toEqual([...cut]);
     expect(Graph.edgeCount(graph)).toBe(4);
   }),
 );

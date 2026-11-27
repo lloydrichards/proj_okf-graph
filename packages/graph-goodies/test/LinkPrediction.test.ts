@@ -24,7 +24,7 @@ describe("twoHopCandidates", () => {
           Graph.addEdge(graph, first, strongest, "link");
         });
 
-        expect(yield* LinkPrediction.twoHopCandidates(graph, 0)).toEqual([
+        expect(yield* graph.pipe(LinkPrediction.twoHopCandidates(0))).toEqual([
           { target: 5, intermediates: [1, 2] },
           { target: 3, intermediates: [1] },
           { target: 4, intermediates: [2] },
@@ -83,7 +83,7 @@ it.effect(
         Graph.addEdge(graph, focused, focusedTarget, undefined);
       });
       const counted = yield* LinkPrediction.twoHopCandidates(graph, 0);
-      const ranked = yield* LinkPrediction.rankTwoHopCandidates(graph, 0);
+      const ranked = yield* graph.pipe(LinkPrediction.rankTwoHopCandidates(0));
 
       expect(counted).toEqual([
         { target: 3, intermediates: [1] },
