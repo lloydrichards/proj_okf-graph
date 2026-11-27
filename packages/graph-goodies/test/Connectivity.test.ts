@@ -117,11 +117,12 @@ it.effect(
         Graph.addEdge(graph, 4, 5, undefined);
       });
 
-      const cut = yield* Connectivity.minimumEdgeCut(graph, {
-        source: 0,
-        target: 5,
-      });
+      const endpoints = { source: 0, target: 5 };
+      const cut = yield* Connectivity.minimumEdgeCut(graph, endpoints);
+      const synchronous = Connectivity.minimumEdgeCutSync(graph, endpoints);
+
       expect([...cut]).toEqual([0, 1]);
+      expect([...synchronous]).toEqual([...cut]);
     }),
 );
 
@@ -155,12 +156,13 @@ it.effect("excludes edges entering the source side of a directed cut", () =>
     Graph.addEdge(graph, target, source, undefined);
     const forward = Graph.addEdge(graph, source, target, undefined);
 
-    const cut = yield* Connectivity.minimumEdgeCut(Graph.endMutation(graph), {
-      source,
-      target,
-    });
+    const snapshot = Graph.endMutation(graph);
+    const endpoints = { source, target };
+    const cut = yield* Connectivity.minimumEdgeCut(snapshot, endpoints);
+    const synchronous = Connectivity.minimumEdgeCutSync(snapshot, endpoints);
 
     expect([...cut]).toEqual([forward]);
+    expect([...synchronous]).toEqual([...cut]);
   }),
 );
 
