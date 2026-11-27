@@ -388,6 +388,15 @@ const redundancy = (
 const exitFraction = (exits: number, volume: number): number | undefined =>
   volume === 0 ? undefined : exits / volume;
 
+const twoWayNormalizedCut = (
+  crossing: number,
+  leftVolume: number,
+  rightVolume: number,
+): number | undefined =>
+  leftVolume === 0 || rightVolume === 0
+    ? undefined
+    : (crossing * (leftVolume + rightVolume)) / (leftVolume * rightVolume);
+
 const measurePartition = (
   graph: PartitionGraph,
   membership: ReadonlyMap<Graph.NodeIndex, number>,
@@ -473,9 +482,16 @@ export const normalizedCut = Effect.fnUntraced(function* <N, E>(
   return {
     crossingEdges,
     groups: fractions,
-    score: fractions.some(({ fraction }) => fraction === undefined)
-      ? undefined
-      : fractions.reduce((sum, { fraction }) => sum + fraction!, 0),
+    score:
+      fractions.length === 2
+        ? twoWayNormalizedCut(
+            crossingEdges.length,
+            fractions[0]!.volume,
+            fractions[1]!.volume,
+          )
+        : fractions.some(({ fraction }) => fraction === undefined)
+          ? undefined
+          : fractions.reduce((sum, { fraction }) => sum + fraction!, 0),
   };
 });
 
@@ -533,17 +549,24 @@ const neighborhoodOrder = (
   neighbors: ReadonlyMap<Graph.NodeIndex, ReadonlyArray<Graph.NodeIndex>>,
   nodes: ReadonlyArray<Graph.NodeIndex>,
 ): ReadonlyArray<Graph.NodeIndex> => {
-  const order = [seed];
-  const seen = new Set(order);
-  for (const node of order) {
-    for (const next of neighbors.get(node)!) {
-      if (seen.has(next)) continue;
-      seen.add(next);
-      order.push(next);
+  const order: Graph.NodeIndex[] = [];
+  const seen = new Set<Graph.NodeIndex>();
+  let cursor = 0;
+  for (const root of [seed, ...nodes]) {
+    if (seen.has(root)) continue;
+
+    seen.add(root);
+    order.push(root);
+    for (; cursor < order.length; cursor++) {
+      for (const next of neighbors.get(order[cursor]!)!) {
+        if (seen.has(next)) continue;
+        seen.add(next);
+        order.push(next);
+      }
     }
   }
 
-  return [...order, ...nodes.filter((node) => !seen.has(node))];
+  return order;
 };
 
 const findBoundary = Effect.fnUntraced(function* (
@@ -600,9 +623,7 @@ const findBoundary = Effect.fnUntraced(function* (
               edges.length,
               crossing,
             )
-          : volume === 0 || oppositeVolume === 0
-            ? undefined
-            : crossing / volume + crossing / oppositeVolume;
+          : twoWayNormalizedCut(crossing, volume, oppositeVolume);
       if (score !== undefined && (best === undefined || score < best.score)) {
         best = { order, size: left.size, score };
       }
@@ -683,7 +704,8 @@ const decompose = Effect.fnUntraced(function* (
  *
  * For each group, take breadth-first orders from up to `maxSeeds` nodes
  * evenly spaced by ascending node index, and score prefixes that meet the
- * size limit. This searches a bounded shortlist, and ties keep the first
+ * size limit. Each traversal finishes one connected component before starting
+ * the next from its lowest unseen index. Ties keep the first
  * candidate. Repeat on the links internal to each child. Stop at the depth
  * or size limit, or when no candidate scores below zero for Alexander's
  * score or below one for normalized cut. These thresholds are stopping

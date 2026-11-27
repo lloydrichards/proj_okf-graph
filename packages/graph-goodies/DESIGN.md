@@ -80,7 +80,7 @@ branch stopped.
 
 For the houseplants bundle, projecting 67 concepts to 207 simple
 undirected authored links and using all 67 seeds produced a 44/23 root
-split under Alexander’s objective and a 9/58 split under normalized cut.
+split under Alexander’s objective and a 17/50 split under normalized cut.
 This projection leaves folder and frontmatter relationships to the caller.
 
 ## Open research questions

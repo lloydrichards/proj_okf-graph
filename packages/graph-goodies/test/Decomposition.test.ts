@@ -194,3 +194,70 @@ it.effect(
       ).toMatchObject({ _tag: "InvalidDecompositionOptions" });
     }),
 );
+
+it.effect(
+  "finds an intact split across disconnected components with interleaved indices",
+  () =>
+    Effect.gen(function* () {
+      const graph = fixture(8, [
+        [0, 4],
+        [1, 5],
+        [2, 6],
+        [3, 7],
+      ]);
+      const tree = yield* Structure.decomposeHierarchy(graph, {
+        objective: "normalizedCut",
+        minGroupSize: 4,
+      });
+      expect(tree).toMatchObject({
+        _tag: "Split",
+        score: 0,
+        crossingEdges: [],
+        candidatesEvaluated: 8,
+        children: [{ nodes: [0, 1, 4, 5] }, { nodes: [2, 3, 6, 7] }],
+      });
+    }),
+);
+
+it.effect(
+  "keeps the first boundary when equal normalized cuts have different volumes",
+  () =>
+    Effect.gen(function* () {
+      const graph = fixture(8, [
+        [0, 2],
+        [1, 3],
+        [2, 7],
+        [3, 7],
+        [4, 5],
+        [4, 7],
+        [2, 3],
+        [6, 7],
+        [1, 6],
+        [2, 5],
+        [0, 3],
+        [2, 4],
+        [0, 4],
+        [0, 5],
+      ]);
+      const first = yield* Structure.normalizedCut(graph, [
+        [1, 6],
+        [0, 2, 3, 4, 5, 7],
+      ]);
+      const later = yield* Structure.normalizedCut(graph, [
+        [0, 2, 4, 5],
+        [1, 3, 6, 7],
+      ]);
+      expect(first.score).toBe(7 / 12);
+      expect(later.score).toBe(first.score);
+
+      const tree = yield* Structure.decomposeHierarchy(graph, {
+        objective: "normalizedCut",
+        maxDepth: 1,
+      });
+      expect(tree).toMatchObject({
+        _tag: "Split",
+        crossingEdges: [1, 7],
+        score: first.score,
+      });
+    }),
+);
