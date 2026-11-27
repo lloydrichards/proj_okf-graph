@@ -58,6 +58,8 @@ const isWalkHorizon = Schema.is(WalkHorizon);
  * Targets are treated as a set. With no targets, the result reports only
  * dead-end and remaining probability. The three outcomes sum to one within
  * floating-point precision. The horizon must be a non-negative safe integer.
+ * Runtime can grow with the horizon even without hits, and the result retains
+ * a map for each step with hits. Choose a horizon that fits the query budget.
  *
  * **Example**
  *
@@ -98,7 +100,13 @@ export const firstHitWithin = Effect.fnUntraced(function* <N, E>(
   }
 
   const hitsByStep = new Map<number, ReadonlyMap<Graph.NodeIndex, number>>();
-  const adjacency = new Map<Graph.NodeIndex, ReadonlyArray<Graph.NodeIndex>>();
+  const adjacency = new Map<
+    Graph.NodeIndex,
+    {
+      readonly degree: number;
+      readonly multiplicities: ReadonlyMap<Graph.NodeIndex, number>;
+    }
+  >();
   let frontier = new Map([[source, 1]]);
   let deadEndProbability = 0;
   let remainingProbability = 0;
@@ -111,21 +119,25 @@ export const firstHitWithin = Effect.fnUntraced(function* <N, E>(
         continue;
       }
 
-      let destinations = adjacency.get(node);
-      if (destinations === undefined) {
-        destinations = Graph.outgoingEdges(graph, node).map(
-          (edge) => Option.getOrThrow(Graph.getEdge(graph, edge)).target,
-        );
-        adjacency.set(node, destinations);
+      let outgoing = adjacency.get(node);
+      if (outgoing === undefined) {
+        const edges = Graph.outgoingEdges(graph, node);
+        const multiplicities = new Map<Graph.NodeIndex, number>();
+        for (const edge of edges) {
+          const { target } = Option.getOrThrow(Graph.getEdge(graph, edge));
+          multiplicities.set(target, (multiplicities.get(target) ?? 0) + 1);
+        }
+        outgoing = { degree: edges.length, multiplicities };
+        adjacency.set(node, outgoing);
       }
-      if (destinations.length === 0) {
+      if (outgoing.degree === 0) {
         deadEndProbability += probability;
       } else if (step === maxSteps) {
         remainingProbability += probability;
       } else {
-        const share = probability / destinations.length;
-        if (share === 0) continue;
-        for (const target of destinations) {
+        for (const [target, multiplicity] of outgoing.multiplicities) {
+          const share = probability * (multiplicity / outgoing.degree);
+          if (share === 0) continue;
           next.set(target, (next.get(target) ?? 0) + share);
         }
       }
