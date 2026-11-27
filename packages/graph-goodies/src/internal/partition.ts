@@ -1,10 +1,7 @@
-import { Effect, Graph, Order, Schema } from "effect";
+import { Graph, Order, Result, Schema } from "effect";
 
-/** Raised when a partition needs a simple graph or disjoint, exhaustive groups. */
-export class InvalidPartition extends Schema.TaggedError<
-  InvalidPartition,
-  { readonly brand: unique symbol }
->()("InvalidPartition", {
+/** @internal */
+export const PartitionIssue = Schema.Struct({
   reason: Schema.Literals([
     "selfLoop",
     "parallelEdge",
@@ -15,7 +12,9 @@ export class InvalidPartition extends Schema.TaggedError<
     "missingNode",
   ]),
   index: Schema.optional(Schema.Number),
-}) {}
+});
+
+type PartitionIssue = typeof PartitionIssue.Type;
 
 /** @internal */
 export type PartitionEdge = {
@@ -31,9 +30,9 @@ export type PartitionGraph = {
 };
 
 /** @internal */
-export const readPartitionGraph = Effect.fnUntraced(function* <N, E>(
+export const readPartitionGraph = <N, E>(
   graph: Graph.UndirectedGraph<N, E>,
-): Effect.fn.Return<PartitionGraph, InvalidPartition> {
+): Result.Result<PartitionGraph, PartitionIssue> => {
   const nodes = Array.from(Graph.nodes(graph), ([id]) => id).sort(Order.Number);
   const neighbors = new Map<Graph.NodeIndex, Set<Graph.NodeIndex>>();
   const edges: PartitionEdge[] = [];
@@ -41,40 +40,38 @@ export const readPartitionGraph = Effect.fnUntraced(function* <N, E>(
     const source = Math.min(edge.source, edge.target);
     const target = Math.max(edge.source, edge.target);
     if (source === target)
-      return yield* new InvalidPartition({ reason: "selfLoop", index: id });
+      return Result.fail({ reason: "selfLoop", index: id });
 
     const adjacent = neighbors.get(source) ?? new Set<Graph.NodeIndex>();
     if (adjacent.has(target))
-      return yield* new InvalidPartition({ reason: "parallelEdge", index: id });
+      return Result.fail({ reason: "parallelEdge", index: id });
     adjacent.add(target);
     neighbors.set(source, adjacent);
     edges.push({ id, source, target });
   }
 
-  return { nodes, edges };
-});
+  return Result.succeed({ nodes, edges });
+};
 
 /** @internal */
-export const readGroups = Effect.fnUntraced(function* (
+export const readGroups = (
   nodes: ReadonlyArray<Graph.NodeIndex>,
   groups: ReadonlyArray<ReadonlyArray<Graph.NodeIndex>>,
-): Effect.fn.Return<ReadonlyMap<Graph.NodeIndex, number>, InvalidPartition> {
-  if (groups.length < 2)
-    return yield* new InvalidPartition({ reason: "tooFewGroups" });
+): Result.Result<ReadonlyMap<Graph.NodeIndex, number>, PartitionIssue> => {
+  if (groups.length < 2) return Result.fail({ reason: "tooFewGroups" });
 
   const available = new Set(nodes);
   const membership = new Map<Graph.NodeIndex, number>();
   for (const [index, group] of groups.entries()) {
-    if (group.length === 0)
-      return yield* new InvalidPartition({ reason: "emptyGroup", index });
+    if (group.length === 0) return Result.fail({ reason: "emptyGroup", index });
     for (const node of group) {
       if (!available.has(node))
-        return yield* new InvalidPartition({
+        return Result.fail({
           reason: "unknownNode",
           index: node,
         });
       if (membership.has(node))
-        return yield* new InvalidPartition({
+        return Result.fail({
           reason: "duplicateNode",
           index: node,
         });
@@ -84,14 +81,14 @@ export const readGroups = Effect.fnUntraced(function* (
 
   for (const node of nodes) {
     if (!membership.has(node))
-      return yield* new InvalidPartition({
+      return Result.fail({
         reason: "missingNode",
         index: node,
       });
   }
 
-  return membership;
-});
+  return Result.succeed(membership);
+};
 
 /** @internal */
 export const pairs = (size: number): number => (size * (size - 1)) / 2;
