@@ -57,6 +57,17 @@ the first-hit probability at each step and the probability still moving at
 the horizon. PageRank answers the separate question of long-run visit
 frequency under a restart policy.
 
-## Follow-up candidates
+Use `Structure.refineColors` to group nodes by initial labels and patterns
+in their neighborhoods. Separate incoming and outgoing roles on a directed
+graph. Matching colors indicate that the performed rounds leave those nodes
+indistinguishable by these features. [Weisfeiler–Lehman graph kernels](https://www.jmlr.org/papers/v12/shervashidze11a.html)
 
-- Explore Weisfeiler–Lehman refinement for finding nodes with similar neighborhoods.
+## Open research questions
+
+- Effective resistance needs a conductance model and a fixture that shows
+  how it complements a minimum cut. Infomap needs a fixture where flow-based
+  communities reveal a useful grouping.
+- Promise Theory needs explicit commitments, acceptance, and observed
+  outcomes. Typed paths can trace relationships once those are modeled.
+  The caller supplies evidence that a commitment was fulfilled. [Burgess on
+  Promise Theory](https://arxiv.org/abs/2004.12661)
