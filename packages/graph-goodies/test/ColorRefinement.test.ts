@@ -103,3 +103,21 @@ it.effect(
       expect(second.colors.get(1)).toBe(second.colors.get(3));
     }),
 );
+
+it.effect("counts an undirected self-loop exactly once", () =>
+  Effect.gen(function* () {
+    const graph = Graph.undirected<string, undefined>((graph) => {
+      const loop = Graph.addNode(graph, "loop");
+      const left = Graph.addNode(graph, "left");
+      const right = Graph.addNode(graph, "right");
+      Graph.addNode(graph, "isolated");
+      Graph.addEdge(graph, loop, loop, undefined);
+      Graph.addEdge(graph, left, right, undefined);
+    });
+    const { colors } = yield* Structure.refineColors(graph, { maxRounds: 1 });
+
+    expect(colors.get(0)).toBe(colors.get(1));
+    expect(colors.get(0)).toBe(colors.get(2));
+    expect(colors.get(0)).not.toBe(colors.get(3));
+  }),
+);
